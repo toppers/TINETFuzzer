@@ -1,0 +1,6 @@
+#ifndef TINET_TARGET_DEFS_H
+#define TINET_TARGET_DEFS_H
+
+#define CPU_NET_ALIGN		2
+
+#endif // TINET_TARGET_DEFS_H

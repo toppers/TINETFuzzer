@@ -348,3 +348,9 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# libFuzzer report
+fuzz-*.log
+crash-*
+slow-unit-*
+timeout-*
