@@ -5,8 +5,8 @@
 #include <stddef.h>
 #include <limits.h>
 
-#define Inline	static __inline	/* インライン関数 */
+#define Inline	static __inline	/* 繧､繝ｳ繝ｩ繧､繝ｳ髢｢謨ｰ */
 
-#define NoReturn				/* リターンしない関数 */
+#define NoReturn				/* 繝ｪ繧ｿ繝ｼ繝ｳ縺励↑縺�髢｢謨ｰ */
 
 #endif // TARGET_STDDEF_H

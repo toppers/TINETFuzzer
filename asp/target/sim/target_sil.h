@@ -2,24 +2,24 @@
 #define TARGET_SIL_H
 
 /*
- *  ‘SŠ„ž‚ÝƒƒbƒNó‘Ô‚Ì§Œä
+ *  å…¨å‰²è¾¼ã¿ãƒ­ãƒƒã‚¯çŠ¶æ…‹ã®åˆ¶å¾¡
  */
 #define SIL_PRE_LOC		int_t intmask
 #define SIL_LOC_INT()	(intmask = 1)
 #define SIL_UNL_INT()	(intmask = intmask - 1)
 
 /*
- *  ”÷­ŽžŠÔ‘Ò‚¿
+ *  å¾®å°‘æ™‚é–“å¾…ã¡
  */
 extern void sil_dly_nse(ulong_t dlytim);
 
 /*
- *  ƒvƒƒZƒbƒT‚ÌƒGƒ“ƒfƒBƒAƒ“
+ *  ãƒ—ãƒ­ã‚»ãƒƒã‚µã®ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³
  */
-#define SIL_ENDIAN_LITTLE			/* ƒŠƒgƒ‹ƒGƒ“ƒfƒBƒAƒ“ */
+#define SIL_ENDIAN_LITTLE			/* ãƒªãƒˆãƒ«ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³ */
 
 /*
- *  ƒƒ‚ƒŠ“¯ŠúƒoƒŠƒA
+ *  ãƒ¡ãƒ¢ãƒªåŒæœŸãƒãƒªã‚¢
  */
 #define TOPPERS_SIL_WRITE_SYNC()
 
