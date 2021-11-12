@@ -106,8 +106,6 @@ typedef struct task_context_block {
 	int exitcode;
 } TSKCTXB;
 
-extern jmp_buf SCHEDULER_EIXT;
-
 /*
  *  コンテキストの参照
  */
