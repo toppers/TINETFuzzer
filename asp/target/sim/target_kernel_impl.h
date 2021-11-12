@@ -201,7 +201,7 @@ extern bool_t probe_int(INTNO intno);
 /*
  *  最高優先順位タスクへのディスパッチ
  */
-extern void	dispatch(void);
+extern void dispatch(void);
 
 /*
  *  非タスクコンテキストからのディスパッチ要求
@@ -216,17 +216,17 @@ extern void start_dispatch(void);
 /*
  *  現在のコンテキストを捨ててディスパッチ
  */
-extern void	exit_and_dispatch(void);
+extern void exit_and_dispatch(void);
 
 /*
  *  割込みハンドラ出入口処理
  */
-extern void	int_handler_entry(void);
+extern void int_handler_entry(void);
 
 /*
  *  CPU例外ハンドラ出入口処理
  */
-extern void	exc_handler_entry(void);
+extern void exc_handler_entry(void);
 
 /*
  *  カーネルの終了処理の呼出し
@@ -236,7 +236,7 @@ extern void call_exit_kernel(void) NoReturn;
 /*
  *  タスクコンテキストの初期化
  */
-extern void	start_r(void);
+extern void start_r(void);
 
 	/* 指定されたタスク（p_tcb）のTCB中のスタックポインタを初期化する */
 	/* start_rを，実行再開番地として自タスクのTCBに保存する */
@@ -302,14 +302,14 @@ extern bool_t exc_sense_intmask(void *p_excinf);
 /*
  *  ターゲットシステム依存の初期化
  */
-extern void	target_initialize(void);
+extern void target_initialize(void);
 
 /*
  *  ターゲットシステムの終了
  *
  *  システムを終了する時に使う．
  */
-extern void	target_exit(void) NoReturn;
+extern void target_exit(void) NoReturn;
 
 #endif /* TOPPERS_MACRO_ONLY */
 #endif /* TOPPERS_TARGET_KERNEL_IMPL_H */

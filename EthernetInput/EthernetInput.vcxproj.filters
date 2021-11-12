@@ -644,5 +644,8 @@
     <ClInclude Include="..\asp\target\sim\tinet_target_defs.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="dummy.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

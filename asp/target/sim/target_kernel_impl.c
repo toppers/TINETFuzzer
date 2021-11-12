@@ -22,6 +22,9 @@ typedef struct task_data_t {
 #define TASK_STACK_SIZE 2048
 
 jmp_buf SCHEDULER_EIXT;
+#ifdef _M_X64
+static volatile unsigned __int64 frame;
+#endif
 
 void task_start(T_TSKDAT* p_tcb);
 
@@ -85,6 +88,10 @@ void dispatch()
 
 	if (p_runtsk == NULL || setjmp(p_runtsk->tskctxb.TASK) == 0) {
 		p_runtsk = p_schedtsk;
+#ifdef _M_X64
+		_JUMP_BUFFER* jb = (_JUMP_BUFFER*)p_runtsk->tskctxb.TASK;
+		jb->Frame = frame;
+#endif
 		longjmp(p_runtsk->tskctxb.TASK, 1);
 	}
 }
@@ -123,6 +130,9 @@ void start_dispatch(void)
 
 	context = 0;
 	lock = 0;
+#ifdef _M_X64
+	frame = (unsigned __int64)__builtin_frame_address(0);
+#endif
 
 	for (i = 0; i < TNUM_TSKID; i++) {
 		memcpy(&TASK_INF[i].tinib, &tinib_table[i], sizeof(TINIB));
