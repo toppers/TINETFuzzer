@@ -141,11 +141,11 @@ enum MPFID_T {
 #define TNUM_PDQID  (TNUM_SPDQID + 0)
 
 #define TMIN_MTXID 1
-#define TNUM_SMTXID 0
+#define TNUM_SMTXID 1
 #define TNUM_MTXID (TNUM_SMTXID + 0)
 
 #define TMIN_CYCID 1
-#define TNUM_SCYCID 0
+#define TNUM_SCYCID 1
 #define TNUM_CYCID (TNUM_SCYCID + 0)
 
 #define TMIN_ALMID 1
