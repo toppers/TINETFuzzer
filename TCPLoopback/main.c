@@ -49,8 +49,12 @@
 uint8_t tcp1_buf[2 * TCP_SOCKET_BUF_SIZE];
 uint8_t tcp2_buf[2 * TCP_SOCKET_BUF_SIZE];
 
-const uint8_t *g_data;
+const uint16_t *g_data;
 size_t g_size;
+int g_task1_pos;
+int g_task2_pos;
+bool_t g_task1_end;
+bool_t g_task2_end;
 
 ER socket_tcp_callback(ID cepid, FN fncd, void *p_parblk)
 {
@@ -64,7 +68,9 @@ void task1(void *arg)
 	T_TCP_CCEP ccep = { 0, tcp1_buf, TCP_SOCKET_BUF_SIZE, &tcp1_buf[TCP_SOCKET_BUF_SIZE], TCP_SOCKET_BUF_SIZE, (FP)socket_tcp_callback };
 	T_IPV4EP dstaddr = { 0 };
 	uint8_t *pBuf = NULL;
-	int i;
+	int i, len;
+	uint8_t rcv = 0;
+	uint8_t snd = 0;
 
 	ret = tcp_cre_rep(USR_TCP_REP1, &crep);
 	assert(ret == E_OK);
@@ -75,24 +81,51 @@ void task1(void *arg)
 	ret = tcp_acp_cep(USR_TCP_CEP1, USR_TCP_REP1, &dstaddr, TMO_FEVR);
 	assert(ret == E_OK);
 
-	ret = tcp_rcv_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
-	assert(ret >= 0);
+	while (g_task1_pos < g_size) {
+		if ((g_data[g_task1_pos] & 0x8000) == 0) {
+			len = g_data[g_task1_pos] & ~0xC000;
 
-	for (i = 0; i < ret; i++) {
-		assert(pBuf[i] == (uint8_t)i);
+			ret = tcp_rcv_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
+			assert(ret >= 0);
+			if (len > ret)
+				len = ret;
+
+			for (i = 0; i < len; i++, rcv++) {
+				assert(pBuf[i] == rcv);
+			}
+
+			ret = tcp_rel_buf(USR_TCP_CEP1, len);
+			assert(ret == E_OK);
+		}
+		else {
+			len = g_data[g_task1_pos] & ~0xC000;
+
+			ret = tcp_get_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
+			assert(ret >= 0);
+			if (len > ret)
+				len = ret;
+
+			for (i = 0; i < len; i++, snd++) {
+				pBuf[i] = (uint8_t)snd;
+			}
+
+			ret = tcp_snd_buf(USR_TCP_CEP1, len);
+			assert(ret == E_OK);
+		}
+
+		g_task1_pos++;
 	}
 
-	ret = tcp_rel_buf(USR_TCP_CEP1, ret);
-	assert(ret == E_OK);
-
 	ret = tcp_cls_cep(USR_TCP_CEP1, TMO_FEVR);
-	assert(ret == E_OK);
+	assert((ret == E_OK) || (ret == E_CLS));
 
 	ret = tcp_del_cep(USR_TCP_CEP1);
 	assert(ret == E_OK);
 
 	ret = tcp_del_rep(USR_TCP_REP1);
 	assert(ret == E_OK);
+
+	g_task1_end = true;
 }
 
 void task2(void *arg)
@@ -102,7 +135,9 @@ void task2(void *arg)
 	T_TCP_CCEP ccep = { 0, tcp2_buf, TCP_SOCKET_BUF_SIZE, &tcp2_buf[TCP_SOCKET_BUF_SIZE], TCP_SOCKET_BUF_SIZE, (FP)socket_tcp_callback };
 	T_IPV4EP dstaddr = { MAKE_IPV4_ADDR(127,0,0,1), 2222 };
 	uint8_t *pBuf = NULL;
-	int i;
+	int i, len;
+	uint8_t rcv = 0;
+	uint8_t snd = 0;
 
 	ret = tcp_cre_cep(USR_TCP_CEP2, &ccep);
 	assert(ret == E_OK);
@@ -110,24 +145,48 @@ void task2(void *arg)
 	ret = tcp_con_cep(USR_TCP_CEP2, &crep, &dstaddr, TMO_FEVR);
 	assert(ret == E_OK);
 
-	ret = tcp_get_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
-	assert(ret >= 0);
+	while (g_task2_pos < g_size) {
+		if ((g_data[g_task2_pos] & 0x4000) == 0) {
+			len = g_data[g_task2_pos] & ~0xC000;
 
-	for (i = 0; i < ret; i++) {
-		pBuf[i] = (uint8_t)i;
+			ret = tcp_get_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
+			assert(ret >= 0);
+			if (len > ret)
+				len = ret;
+
+			for (i = 0; i < len; i++, snd++) {
+				pBuf[i] = (uint8_t)snd;
+			}
+
+			ret = tcp_snd_buf(USR_TCP_CEP2, len);
+			assert(ret == E_OK);
+		}
+		else {
+			len = g_data[g_task2_pos] & ~0xC000;
+
+			ret = tcp_rcv_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
+			assert(ret >= 0);
+			if (len > ret)
+				len = ret;
+
+			for (i = 0; i < len; i++, rcv++) {
+				assert(pBuf[i] == rcv);
+			}
+
+			ret = tcp_rel_buf(USR_TCP_CEP2, len);
+			assert(ret == E_OK);
+		}
+
+		g_task2_pos++;
 	}
 
-	ret = tcp_snd_buf(USR_TCP_CEP2, ret);
-	assert(ret == E_OK);
-
-	ret = tcp_rel_buf(USR_TCP_CEP2, ret);
-	assert(ret == E_OK);
-
 	ret = tcp_cls_cep(USR_TCP_CEP2, TMO_FEVR);
-	assert(ret == E_OK);
+	assert((ret == E_OK) || (ret == E_CLS));
 
 	ret = tcp_del_cep(USR_TCP_CEP2);
 	assert(ret == E_OK);
+
+	g_task2_end = true;
 }
 
 ER callback_nblk_dhcp4_cli(ID cepid, FN fncd, void *p_parblk)
@@ -393,16 +452,16 @@ void clear_fixedblocks()
 		}
 	}
 
-	if (remain !=
-		mpf_net_buf_cseg
-		+ mpf_net_buf_64
-		+ mpf_net_buf_256
-		+ mpf_net_buf_if_pdu
-		+ mpf_net_buf_ipv6_mmtu
-		+ mpf_net_buf_ip_mss
-		+ mpf_net_buf_reassm
-		+ mpf_rslv_srbuf
-		+ mpf_dhcp4_cli_msg)
+	if ((g_task1_end && g_task2_end)
+		&& (remain != mpf_net_buf_cseg
+			+ mpf_net_buf_64
+			+ mpf_net_buf_256
+			+ mpf_net_buf_if_pdu
+			+ mpf_net_buf_ipv6_mmtu
+			+ mpf_net_buf_ip_mss
+			+ mpf_net_buf_reassm
+			+ mpf_rslv_srbuf
+			+ mpf_dhcp4_cli_msg))
 		assert(remain ==
 			mpf_net_buf_cseg
 			+ mpf_net_buf_64
@@ -446,8 +505,12 @@ int LLVMFuzzerInitialize(int *argc, char ***argv)
 /*extern "C" */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-	g_data = (const uint8_t *)data;
-	g_size = size;
+	g_data = (const uint16_t *)data;
+	g_size = size / 2;
+	g_task1_pos = 0;
+	g_task2_pos = 0;
+	g_task1_end = false;
+	g_task2_end = false;
 
 	memcpy(tcp6_rep, init_tcp6_rep, sizeof(init_tcp6_rep));
 	memcpy(tcp4_rep, init_tcp4_rep, sizeof(init_tcp4_rep));
