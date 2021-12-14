@@ -55,6 +55,9 @@ int g_task1_pos;
 int g_task2_pos;
 bool_t g_task1_end;
 bool_t g_task2_end;
+extern bool_t data_session;
+
+extern void if_loop_fini(void);
 
 ER socket_tcp_callback(ID cepid, FN fncd, void *p_parblk)
 {
@@ -71,6 +74,7 @@ void task1(void *arg)
 	int i, len;
 	uint8_t rcv = 0;
 	uint8_t snd = 0;
+	bool_t send = false;
 
 	ret = tcp_cre_rep(USR_TCP_REP1, &crep);
 	assert(ret == E_OK);
@@ -81,9 +85,12 @@ void task1(void *arg)
 	ret = tcp_acp_cep(USR_TCP_CEP1, USR_TCP_REP1, &dstaddr, TMO_FEVR);
 	assert(ret == E_OK);
 
+	data_session = true;
+
 	while (g_task1_pos < g_size) {
 		if ((g_data[g_task1_pos] & 0x8000) == 0) {
-			len = g_data[g_task1_pos] & ~0xC000;
+			send = false;
+			len = g_data[g_task1_pos] & ~0x8000;
 
 			ret = tcp_rcv_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
 			assert(ret >= 0);
@@ -98,7 +105,8 @@ void task1(void *arg)
 			assert(ret == E_OK);
 		}
 		else {
-			len = g_data[g_task1_pos] & ~0xC000;
+			send = true;
+			len = g_data[g_task1_pos] & ~0x8000;
 
 			ret = tcp_get_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
 			assert(ret >= 0);
@@ -114,6 +122,15 @@ void task1(void *arg)
 		}
 
 		g_task1_pos++;
+	}
+
+	while (send && g_task2_pos < g_size) {
+		uint_t count;
+		assert(get_lod(TPRI_SELF, &count) == E_OK);
+		if (count == 1)
+			break;
+		rot_rdq(TPRI_SELF);
+		assert(tsnd_dtq(DTQ_LOOP_OUTPUT, 0, TMO_FEVR) == E_OK);
 	}
 
 	ret = tcp_cls_cep(USR_TCP_CEP1, TMO_FEVR);
@@ -138,6 +155,7 @@ void task2(void *arg)
 	int i, len;
 	uint8_t rcv = 0;
 	uint8_t snd = 0;
+	bool_t send = false;
 
 	ret = tcp_cre_cep(USR_TCP_CEP2, &ccep);
 	assert(ret == E_OK);
@@ -146,8 +164,9 @@ void task2(void *arg)
 	assert(ret == E_OK);
 
 	while (g_task2_pos < g_size) {
-		if ((g_data[g_task2_pos] & 0x4000) == 0) {
-			len = g_data[g_task2_pos] & ~0xC000;
+		if ((g_data[g_task2_pos] & 0x8000) == 0) {
+			send = true;
+			len = g_data[g_task2_pos] & ~0x8000;
 
 			ret = tcp_get_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
 			assert(ret >= 0);
@@ -162,7 +181,8 @@ void task2(void *arg)
 			assert(ret == E_OK);
 		}
 		else {
-			len = g_data[g_task2_pos] & ~0xC000;
+			send = false;
+			len = g_data[g_task2_pos] & ~0x8000;
 
 			ret = tcp_rcv_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
 			assert(ret >= 0);
@@ -178,6 +198,15 @@ void task2(void *arg)
 		}
 
 		g_task2_pos++;
+	}
+
+	while (send && g_task1_pos < g_size) {
+		uint_t count;
+		assert(get_lod(TPRI_SELF, &count) == E_OK);
+		if (count == 1)
+			break;
+		rot_rdq(TPRI_SELF);
+		assert(tsnd_dtq(DTQ_LOOP_OUTPUT, 0, TMO_FEVR) == E_OK);
 	}
 
 	ret = tcp_cls_cep(USR_TCP_CEP2, TMO_FEVR);
@@ -390,6 +419,22 @@ void clear_fixedblocks()
 
 	queue_initialize(&temp);
 
+#ifdef SUPPORT_ETHER
+	for (;;) {
+		bool_t empty = true;
+		const T_NET_BUF **pos = ip6_get_frag_queue(), **end = &pos[NUM_IP6_FRAG_QUEUE];
+		for (; pos < end; pos++) {
+			if (*pos != NULL) {
+				empty = false;
+				break;
+			}
+		}
+		if (empty)
+			break;
+		frag6_timer();
+	}
+#endif
+
 	while (!queue_empty(&alloc_mem)) {
 		QUEUE* node = alloc_mem.p_prev;
 		T_NET_BUF* blk = (T_NET_BUF*)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
@@ -423,7 +468,7 @@ void clear_fixedblocks()
 				}
 			}
 		}
-
+#if 0
 		if (node != NULL) {
 			/* データグラム再構成キュー配列に残っているパケットは解放しない */
 			const T_NET_BUF** pos = ip6_get_frag_queue(), ** end = &pos[NUM_IP6_FRAG_QUEUE];
@@ -445,6 +490,7 @@ void clear_fixedblocks()
 					break;
 			}
 		}
+#endif
 #endif
 		if (node != NULL) {
 			ID mpfid = *(ID*)((intptr_t)node + sizeof(QUEUE));
@@ -472,6 +518,8 @@ void clear_fixedblocks()
 			+ mpf_net_buf_reassm
 			+ mpf_rslv_srbuf
 			+ mpf_dhcp4_cli_msg);
+
+	assert(remain < 10);
 
 	while (!queue_empty(&temp)) {
 		QUEUE* node = temp.p_prev;
@@ -511,6 +559,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	g_task2_pos = 0;
 	g_task1_end = false;
 	g_task2_end = false;
+	data_session = false;
 
 	memcpy(tcp6_rep, init_tcp6_rep, sizeof(init_tcp6_rep));
 	memcpy(tcp4_rep, init_tcp4_rep, sizeof(init_tcp4_rep));
@@ -520,6 +569,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	memset(tcp_twcep, 0, sizeof(tcp_twcep));
 
 	sta_ker();
+
+	if_loop_fini();
 
 	clear_fixedblocks();
 
