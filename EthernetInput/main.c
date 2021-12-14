@@ -167,7 +167,7 @@ int mpf_net_buf_reassm;
 int mpf_rslv_srbuf;
 int mpf_dhcp4_cli_msg;
 
-ER tget_mpf(ID mpfid, void** p_blk, TMO tmout)
+ER tget_mpf(ID mpfid, void **p_blk, TMO tmout)
 {
 	size_t len;
 
@@ -221,7 +221,7 @@ ER tget_mpf(ID mpfid, void** p_blk, TMO tmout)
 		return E_OBJ;
 	}
 
-	QUEUE* node = malloc(sizeof(QUEUE) + sizeof(ID) + len);
+	QUEUE *node = malloc(sizeof(QUEUE) + sizeof(ID) + len);
 	if (node == NULL) {
 		*p_blk = NULL;
 		return E_NOMEM;
@@ -230,25 +230,25 @@ ER tget_mpf(ID mpfid, void** p_blk, TMO tmout)
 	queue_initialize(node);
 	queue_insert_next(&alloc_mem, node);
 
-	*(ID*)((intptr_t)node + sizeof(QUEUE)) = mpfid;
-	*p_blk = (void*)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
+	*(ID *)((intptr_t)node + sizeof(QUEUE)) = mpfid;
+	*p_blk = (void *)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
 
 	return E_OK;
 }
 
-ER pget_mpf(ID mpfid, void** p_blk)
+ER pget_mpf(ID mpfid, void **p_blk)
 {
 	return tget_mpf(mpfid, p_blk, TMO_POL);
 }
 
-ER get_mpf(ID mpfid, void** p_blk)
+ER get_mpf(ID mpfid, void **p_blk)
 {
 	return tget_mpf(mpfid, p_blk, TMO_FEVR);
 }
 
-ER rel_mpf(ID mpfid, void* blk)
+ER rel_mpf(ID mpfid, void *blk)
 {
-	if (mpfid != *(ID*)((intptr_t)blk - sizeof(ID))) {
+	if (mpfid != *(ID *)((intptr_t)blk - sizeof(ID))) {
 		__builtin_trap();
 		return E_OBJ;
 	}
@@ -303,7 +303,7 @@ ER rel_mpf(ID mpfid, void* blk)
 		return E_OBJ;
 	}
 
-	QUEUE* node = (QUEUE*)((intptr_t)blk - sizeof(QUEUE) - sizeof(ID));
+	QUEUE *node = (QUEUE *)((intptr_t)blk - sizeof(QUEUE) - sizeof(ID));
 
 	queue_delete(node);
 
@@ -319,13 +319,29 @@ void clear_fixedblocks()
 
 	queue_initialize(&temp);
 
+#ifdef SUPPORT_ETHER
+	for (;;) {
+		bool_t empty = true;
+		const T_NET_BUF **pos = ip6_get_frag_queue(), **end = &pos[NUM_IP6_FRAG_QUEUE];
+		for (; pos < end; pos++) {
+			if (*pos != NULL) {
+				empty = false;
+				break;
+			}
+		}
+		if (empty)
+			break;
+		frag6_timer();
+	}
+#endif
+
 	while (!queue_empty(&alloc_mem)) {
-		QUEUE* node = alloc_mem.p_prev;
-		T_NET_BUF* blk = (T_NET_BUF*)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
+		QUEUE *node = alloc_mem.p_prev;
+		T_NET_BUF *blk = (T_NET_BUF *)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
 #ifdef SUPPORT_ETHER
 		{
 			/* ARPテーブルに残っているパケットは解放しない */
-			const T_ARP_ENTRY* pos = arp_get_cache(), * end = &pos[NUM_ARP_ENTRY];
+			const T_ARP_ENTRY *pos = arp_get_cache(), *end = &pos[NUM_ARP_ENTRY];
 			for (; pos < end; pos++) {
 				if (blk == pos->hold) {
 					queue_delete(node);
@@ -340,7 +356,7 @@ void clear_fixedblocks()
 
 		if (node != NULL) {
 			/* 近隣キャッシュテーブルに残っているパケットは解放しない */
-			const T_LLINFO_ND6* pos = nd6_get_cache(), * end = &pos[NUM_ND6_CACHE_ENTRY];
+			const T_LLINFO_ND6 *pos = nd6_get_cache(), *end = &pos[NUM_ND6_CACHE_ENTRY];
 			for (; pos < end; pos++) {
 				if (blk == pos->hold) {
 					queue_delete(node);
@@ -352,12 +368,12 @@ void clear_fixedblocks()
 				}
 			}
 		}
-
+#if 0
 		if (node != NULL) {
 			/* データグラム再構成キュー配列に残っているパケットは解放しない */
-			const T_NET_BUF** pos = ip6_get_frag_queue(), ** end = &pos[NUM_IP6_FRAG_QUEUE];
+			const T_NET_BUF **pos = ip6_get_frag_queue(), **end = &pos[NUM_IP6_FRAG_QUEUE];
 			for (; pos < end; pos++) {
-				const T_NET_BUF* next = *pos;
+				const T_NET_BUF *next = *pos;
 				while (next != NULL) {
 					if (blk == next) {
 						queue_delete(node);
@@ -367,7 +383,7 @@ void clear_fixedblocks()
 						remain++;
 						break;
 					}
-					T_QIP6_HDR* qip6h = GET_QIP6_HDR(next);
+					T_QIP6_HDR *qip6h = GET_QIP6_HDR(next);
 					next = qip6h->next_frag;
 				}
 				if (node == NULL)
@@ -375,8 +391,9 @@ void clear_fixedblocks()
 			}
 		}
 #endif
+#endif
 		if (node != NULL) {
-			ID mpfid = *(ID*)((intptr_t)node + sizeof(QUEUE));
+			ID mpfid = *(ID *)((intptr_t)node + sizeof(QUEUE));
 			rel_mpf(mpfid, blk);
 		}
 	}
@@ -402,8 +419,10 @@ void clear_fixedblocks()
 			+ mpf_rslv_srbuf
 			+ mpf_dhcp4_cli_msg);
 
+	assert(remain < (NUM_ARP_ENTRY + NUM_ND6_CACHE_ENTRY + NUM_IP6_FRAG_QUEUE));
+
 	while (!queue_empty(&temp)) {
-		QUEUE* node = temp.p_prev;
+		QUEUE *node = temp.p_prev;
 		queue_delete(node);
 		queue_initialize(node);
 		queue_insert_next(&alloc_mem, node);
