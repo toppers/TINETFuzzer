@@ -22,9 +22,15 @@ typedef struct task_data_t {
 #define TASK_STACK_SIZE 2048
 
 jmp_buf SCHEDULER_EIXT;
+static int scheduler_eixt;
 #ifdef _M_X64
 static volatile unsigned __int64 frame;
 #endif
+static int interrupt_stopped;
+static int interrupt_count;
+static int interrupt_count_max = WINT_MAX;
+static int context;
+static int lock;
 
 void task_start(T_TSKDAT* p_tcb);
 
@@ -67,8 +73,15 @@ void task_start(T_TSKDAT *tskdat)
 	task_start_internal(tskdat);
 }
 
-static int context;
-static int lock;
+void stop_interrupt(void)
+{
+	interrupt_stopped = 1;
+}
+
+void set_interrupt_count_max(int max)
+{
+	interrupt_count_max = max;
+}
 
 void dispatch()
 {
@@ -77,11 +90,14 @@ void dispatch()
 
 	if (p_schedtsk == NULL) {
 		context = 1;
+		unlock_cpu();
 		target_custom_idle();
+		lock_cpu();
 		context = 0;
 	}
 
 	if (p_schedtsk == NULL) {
+		scheduler_eixt = 1;
 		longjmp(SCHEDULER_EIXT, 1);
 		return;
 	}
@@ -118,7 +134,8 @@ void unlock_cpu()
 
 void call_exit_kernel(void)
 {
-	longjmp(SCHEDULER_EIXT, 1);
+	if (!scheduler_eixt)
+		longjmp(SCHEDULER_EIXT, 1);
 }
 
 extern const TINIB tinib_table[];
@@ -128,6 +145,8 @@ void start_dispatch(void)
 {
 	int i;
 
+	scheduler_eixt = 0;
+	interrupt_stopped = 0;
 	context = 0;
 	lock = 0;
 #ifdef _M_X64
@@ -243,6 +262,16 @@ void target_initialize(void)
 
 void target_raise_hrt_int(void)
 {
+	if (interrupt_stopped)
+		return;
+
+	interrupt_count++;
+	if (interrupt_count > interrupt_count_max)
+		return;
+
+	unlock_cpu();
+	target_hrt_handler();
+	lock_cpu();
 }
 
 void target_raise_ovr_int(void)

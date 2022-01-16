@@ -102,8 +102,13 @@
  *  タスクコンテキストブロックの定義
  */
 typedef struct task_context_block {
+#ifndef ASP_MULTI_THREAD
 	jmp_buf TASK;
 	int exitcode;
+#else
+	void (*start)(void);
+	void *cpu_context;
+#endif
 } TSKCTXB;
 
 /*
@@ -240,7 +245,16 @@ extern void start_r(void);
 
 	/* 指定されたタスク（p_tcb）のTCB中のスタックポインタを初期化する */
 	/* start_rを，実行再開番地として自タスクのTCBに保存する */
+#ifndef ASP_MULTI_THREAD
 extern void activate_context(void *p_tcb);
+#else
+extern void *new_context(void *p_tcb);
+#define activate_context(p_tcb)												\
+{																			\
+	(p_tcb)->tskctxb.start = (void (*)(void))start_r;						\
+	(p_tcb)->tskctxb.cpu_context = new_context(p_tcb);						\
+}
+#endif
 
 /*
  *  割込みハンドラの設定

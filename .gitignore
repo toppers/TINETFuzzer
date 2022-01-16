@@ -354,3 +354,6 @@ fuzz-*.log
 crash-*
 slow-unit-*
 timeout-*
+
+# map file
+*.map

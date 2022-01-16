@@ -1,4 +1,4 @@
-// TCPLoopback.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
+// TCPLoopbackWsl.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
 //
 
 #include <stdint.h>
@@ -95,7 +95,7 @@ void task1(void *arg)
 			send = false;
 			len = g_data[g_task1_pos] & ~0x8000;
 
-			ret = tcp_rcv_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
+			ret = tcp_rcv_buf(USR_TCP_CEP1, (void **)&pBuf, TMO_FEVR);
 			if (ret == E_CLS)
 				break;
 			assert(ret >= 0);
@@ -115,7 +115,7 @@ void task1(void *arg)
 			send = true;
 			len = g_data[g_task1_pos] & ~0x8000;
 
-			ret = tcp_get_buf(USR_TCP_CEP1, (void**)&pBuf, TMO_FEVR);
+			ret = tcp_get_buf(USR_TCP_CEP1, (void **)&pBuf, TMO_FEVR);
 			if (ret == E_CLS)
 				break;
 			assert(ret >= 0);
@@ -182,7 +182,7 @@ void task2(void *arg)
 			send = true;
 			len = g_data[g_task2_pos] & ~0x8000;
 
-			ret = tcp_get_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
+			ret = tcp_get_buf(USR_TCP_CEP2, (void **)&pBuf, TMO_FEVR);
 			if (ret == E_CLS)
 				break;
 			assert(ret >= 0);
@@ -202,7 +202,7 @@ void task2(void *arg)
 			send = false;
 			len = g_data[g_task2_pos] & ~0x8000;
 
-			ret = tcp_rcv_buf(USR_TCP_CEP2, (void**)&pBuf, TMO_FEVR);
+			ret = tcp_rcv_buf(USR_TCP_CEP2, (void **)&pBuf, TMO_FEVR);
 			if (ret == E_CLS)
 				break;
 			assert(ret >= 0);
@@ -276,68 +276,95 @@ ER callback_nblk_ntp_cli(ID cepid, FN fncd, void *p_parblk)
 }
 
 QUEUE alloc_mem;
+int mpf_net_buf_cseg;
+QUEUE mpf_net_buf_cseg_queue;
+int mpf_net_buf_64;
+QUEUE mpf_net_buf_64_queue;
+int mpf_net_buf_256;
+QUEUE mpf_net_buf_256_queue;
+int mpf_net_buf_if_pdu;
+QUEUE mpf_net_buf_if_pdu_queue;
+int mpf_net_buf_ipv6_mmtu;
+QUEUE mpf_net_buf_ipv6_mmtu_queue;
+int mpf_net_buf_ip_mss;
+QUEUE mpf_net_buf_ip_mss_queue;
+int mpf_net_buf_reassm;
+QUEUE mpf_net_buf_reassm_queue;
+int mpf_rslv_srbuf;
+QUEUE mpf_rslv_srbuf_queue;
+int mpf_dhcp4_cli_msg;
+QUEUE mpf_dhcp4_cli_msg_queue;
 
 void init_alloc_mem()
 {
 	queue_initialize(&alloc_mem);
+	queue_initialize(&mpf_net_buf_cseg_queue);
+	queue_initialize(&mpf_net_buf_64_queue);
+	queue_initialize(&mpf_net_buf_256_queue);
+	queue_initialize(&mpf_net_buf_if_pdu_queue);
+	queue_initialize(&mpf_net_buf_ipv6_mmtu_queue);
+	queue_initialize(&mpf_net_buf_ip_mss_queue);
+	queue_initialize(&mpf_net_buf_reassm_queue);
+	queue_initialize(&mpf_rslv_srbuf_queue);
+	queue_initialize(&mpf_dhcp4_cli_msg_queue);
 }
 
-int mpf_net_buf_cseg;
-int mpf_net_buf_64;
-int mpf_net_buf_256;
-int mpf_net_buf_if_pdu;
-int mpf_net_buf_ipv6_mmtu;
-int mpf_net_buf_ip_mss;
-int mpf_net_buf_reassm;
-int mpf_rslv_srbuf;
-int mpf_dhcp4_cli_msg;
-
-ER tget_mpf(ID mpfid, void** p_blk, TMO tmout)
+ER tget_mpf(ID mpfid, void **p_blk, TMO tmout)
 {
+	QUEUE *queue, *node;
 	size_t len;
 
 	switch (mpfid) {
 	case MPF_NET_BUF_CSEG:
+		queue = &mpf_net_buf_cseg_queue;
 		mpf_net_buf_cseg++;
 		len = sizeof(T_NET_BUF_CSEG);
 		break;
 	case MPF_NET_BUF_64:
+		queue = &mpf_net_buf_64_queue;
 		mpf_net_buf_64++;
 		len = sizeof(T_NET_BUF_64);
 		break;
 	case MPF_NET_BUF_256:
+		queue = &mpf_net_buf_256_queue;
 		mpf_net_buf_256++;
 		len = sizeof(T_NET_BUF_256);
 		break;
 #if defined(NUM_MPF_NET_BUF_IF_PDU) && NUM_MPF_NET_BUF_IF_PDU > 0
 	case MPF_NET_BUF_IF_PDU:
+		queue = &mpf_net_buf_if_pdu_queue;
 		mpf_net_buf_if_pdu++;
 		len = sizeof(T_NET_BUF_IF_PDU);
 		break;
 #endif
 #if defined(NUM_MPF_NET_BUF_IPV6_MMTU) && NUM_MPF_NET_BUF_IPV6_MMTU > 0
 	case MPF_NET_BUF_IPV6_MMTU:
+		queue = &mpf_net_buf_ipv6_mmtu_queue;
 		mpf_net_buf_ipv6_mmtu++;
 		len = sizeof(T_NET_BUF_IPV6_MMTU);
 		break;
 #endif
 #if defined(NUM_MPF_NET_BUF_IP_MSS) && NUM_MPF_NET_BUF_IP_MSS > 0
 	case MPF_NET_BUF_IP_MSS:
+		queue = &mpf_net_buf_ip_mss_queue;
 		mpf_net_buf_ip_mss++;
 		len = sizeof(T_NET_BUF_IP_MSS);
 		break;
 #endif
 #if (defined(NUM_MPF_NET_BUF6_REASSM) && NUM_MPF_NET_BUF6_REASSM > 0) || (defined(NUM_MPF_NET_BUF4_REASSM) && NUM_MPF_NET_BUF4_REASSM > 0)
 	case MPF_NET_BUF_REASSM:
+		queue = &mpf_net_buf_reassm_queue;
 		mpf_net_buf_reassm++;
 		len = sizeof(T_NET_BUF6_REASSM);
 		break;
 #endif
 	case MPF_RSLV_SRBUF:
+		queue = &mpf_rslv_srbuf_queue;
 		mpf_rslv_srbuf++;
 		len = DNS_UDP_MSG_LENGTH;
 		break;
 	case MPF_DHCP4_CLI_MSG:
+		queue = &mpf_dhcp4_cli_msg_queue;
 		mpf_dhcp4_cli_msg++;
 		len = sizeof(T_DHCP4_CLI_MSG);
 		break;
@@ -346,80 +373,98 @@ ER tget_mpf(ID mpfid, void** p_blk, TMO tmout)
 		return E_OBJ;
 	}
 
-	QUEUE *node = (QUEUE *)malloc(sizeof(QUEUE) + sizeof(ID) + len);
-	if (node == NULL) {
-		*p_blk = NULL;
-		return E_NOMEM;
+	if (queue_empty(queue)) {
+		node = malloc(sizeof(QUEUE) + sizeof(ID) + len);
+		if (node == NULL) {
+			*p_blk = NULL;
+			return E_NOMEM;
+		}
+
+		queue_initialize(node);
+	}
+	else {
+		node = queue->p_next;
+		queue_delete(node);
 	}
 
-	queue_initialize(node);
 	queue_insert_next(&alloc_mem, node);
 
-	*(ID*)((intptr_t)node + sizeof(QUEUE)) = mpfid;
-	*p_blk = (void*)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
+	*(ID *)((intptr_t)node + sizeof(QUEUE)) = mpfid;
+	*p_blk = (void *)((intptr_t)node + sizeof(QUEUE) + sizeof(ID));
 
 	return E_OK;
 }
 
-ER pget_mpf(ID mpfid, void** p_blk)
+ER pget_mpf(ID mpfid, void **p_blk)
 {
 	return tget_mpf(mpfid, p_blk, TMO_POL);
 }
 
-ER get_mpf(ID mpfid, void** p_blk)
+ER get_mpf(ID mpfid, void **p_blk)
 {
 	return tget_mpf(mpfid, p_blk, TMO_FEVR);
 }
 
-ER rel_mpf(ID mpfid, void* blk)
+ER rel_mpf(ID mpfid, void *blk)
 {
-	if (mpfid != *(ID*)((intptr_t)blk - sizeof(ID))) {
+	QUEUE *queue, *node;
+
+	if (mpfid != *(ID *)((intptr_t)blk - sizeof(ID))) {
 		__builtin_trap();
 		return E_OBJ;
 	}
 
 	switch (mpfid) {
 	case MPF_NET_BUF_CSEG:
+		queue = &mpf_net_buf_cseg_queue;
 		mpf_net_buf_cseg--;
 		assert(mpf_net_buf_cseg >= 0);
 		break;
 	case MPF_NET_BUF_64:
+		queue = &mpf_net_buf_64_queue;
 		mpf_net_buf_64--;
 		assert(mpf_net_buf_64 >= 0);
 		break;
 	case MPF_NET_BUF_256:
+		queue = &mpf_net_buf_256_queue;
 		mpf_net_buf_256--;
 		assert(mpf_net_buf_256 >= 0);
 		break;
 #if defined(NUM_MPF_NET_BUF_IF_PDU) && NUM_MPF_NET_BUF_IF_PDU > 0
 	case MPF_NET_BUF_IF_PDU:
+		queue = &mpf_net_buf_if_pdu_queue;
 		mpf_net_buf_if_pdu--;
 		assert(mpf_net_buf_if_pdu >= 0);
 		break;
 #endif
 #if defined(NUM_MPF_NET_BUF_IPV6_MMTU) && NUM_MPF_NET_BUF_IPV6_MMTU > 0
 	case MPF_NET_BUF_IPV6_MMTU:
+		queue = &mpf_net_buf_ipv6_mmtu_queue;
 		mpf_net_buf_ipv6_mmtu--;
 		assert(mpf_net_buf_ipv6_mmtu >= 0);
 		break;
 #endif
 #if defined(NUM_MPF_NET_BUF_IP_MSS) && NUM_MPF_NET_BUF_IP_MSS > 0
 	case MPF_NET_BUF_IP_MSS:
+		queue = &mpf_net_buf_ip_mss_queue;
 		mpf_net_buf_ip_mss--;
 		assert(mpf_net_buf_ip_mss >= 0);
 		break;
 #endif
 #if (defined(NUM_MPF_NET_BUF6_REASSM) && NUM_MPF_NET_BUF6_REASSM > 0) || (defined(NUM_MPF_NET_BUF4_REASSM) && NUM_MPF_NET_BUF4_REASSM > 0)
 	case MPF_NET_BUF_REASSM:
+		queue = &mpf_net_buf_reassm_queue;
 		mpf_net_buf_reassm--;
 		assert(mpf_net_buf_reassm >= 0);
 		break;
 #endif
 	case MPF_RSLV_SRBUF:
+		queue = &mpf_rslv_srbuf_queue;
 		mpf_rslv_srbuf--;
 		assert(mpf_rslv_srbuf >= 0);
 		break;
 	case MPF_DHCP4_CLI_MSG:
+		queue = &mpf_dhcp4_cli_msg_queue;
 		mpf_dhcp4_cli_msg--;
 		assert(mpf_dhcp4_cli_msg >= 0);
 		break;
@@ -428,11 +473,12 @@ ER rel_mpf(ID mpfid, void* blk)
 		return E_OBJ;
 	}
 
-	QUEUE* node = (QUEUE*)((intptr_t)blk - sizeof(QUEUE) - sizeof(ID));
+	node = (QUEUE *)((intptr_t)blk - sizeof(QUEUE) - sizeof(ID));
 
 	queue_delete(node);
 
-	free(node);
+	//free(node);
+	queue_insert_next(queue, node);
 
 	return E_OK;
 }

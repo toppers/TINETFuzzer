@@ -198,7 +198,7 @@ exit_kernel(void)
 	 *  ターゲット依存の終了処理
 	 */
 	target_exit();
-	assert(0);
+	//assert(0);
 }
 
 #endif /* TOPPERS_ext_ker */
