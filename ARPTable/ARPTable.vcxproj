@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{CF586E12-12B1-4669-8F9D-924C7C255B62}</ProjectGuid>
+    <RootNamespace>ARPTable</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>ClangCL</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <LibraryPath>$(LLVMInstallDir)\lib\clang\$(LLVMToolsVersion)\lib\windows;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>$(LLVMInstallDir)\lib\clang\$(LLVMToolsVersion)\lib\windows;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <LibraryPath>$(LLVMInstallDir)\lib\clang\$(LLVMToolsVersion)\lib\windows;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>$(LLVMInstallDir)\lib\clang\$(LLVMToolsVersion)\lib\windows;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ALLFUNC;TARGET_KERNEL_ASP;SUPPORT_ETHER;SUPPORT_INET4;SUPPORT_INET6;SUPPORT_UDP;SUPPORT_TCP;SUPPORT_IGMP;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\asp\include;..\asp\kernel;..\asp\target\sim;..\tinet\tinet;..\asp\tinet;..\asp\tinet\netdev\if_rx62n;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 -fsanitize=fuzzer,address %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>clang_rt.fuzzer-i386.lib;clang_rt.asan-i386.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/MAP %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ALLFUNC;TARGET_KERNEL_ASP;SUPPORT_ETHER;SUPPORT_INET4;SUPPORT_INET6;SUPPORT_UDP;SUPPORT_TCP;SUPPORT_IGMP;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\asp\include;..\asp\kernel;..\asp\target\sim;..\tinet\tinet;..\asp\tinet;..\asp\tinet\netdev\if_rx62n;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 -fsanitize=fuzzer,address %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>clang_rt.fuzzer-i386.lib;clang_rt.asan-i386.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ALLFUNC;TARGET_KERNEL_ASP;SUPPORT_ETHER;SUPPORT_INET4;SUPPORT_INET6;SUPPORT_UDP;SUPPORT_TCP;SUPPORT_IGMP;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\asp\include;..\asp\kernel;..\asp\target\sim;..\tinet\tinet;..\asp\tinet;..\asp\tinet\netdev\if_rx62n;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 -fsanitize=fuzzer,address %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>clang_rt.fuzzer-x86_64.lib;clang_rt.asan-x86_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/MAP %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>ALLFUNC;TARGET_KERNEL_ASP;SUPPORT_ETHER;SUPPORT_INET4;SUPPORT_INET6;SUPPORT_UDP;SUPPORT_TCP;SUPPORT_IGMP;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\asp\include;..\asp\kernel;..\asp\target\sim;..\tinet\tinet;..\asp\tinet;..\asp\tinet\netdev\if_rx62n;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 -fsanitize=fuzzer,address %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>clang_rt.fuzzer-x86_64.lib;clang_rt.asan-x86_64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\asp\kernel\alarm.c" />
+    <ClCompile Include="..\asp\kernel\cyclic.c" />
+    <ClCompile Include="..\asp\kernel\dataqueue.c" />
+    <ClCompile Include="..\asp\kernel\eventflag.c" />
+    <ClCompile Include="..\asp\kernel\exception.c" />
+    <ClCompile Include="..\asp\kernel\interrupt.c" />
+    <ClCompile Include="..\asp\kernel\mempfix.c" />
+    <ClCompile Include="..\asp\kernel\mutex.c" />
+    <ClCompile Include="..\asp\kernel\overrun.c" />
+    <ClCompile Include="..\asp\kernel\pridataq.c" />
+    <ClCompile Include="..\asp\kernel\semaphore.c" />
+    <ClCompile Include="..\asp\kernel\startup.c" />
+    <ClCompile Include="..\asp\kernel\sys_manage.c" />
+    <ClCompile Include="..\asp\kernel\task.c" />
+    <ClCompile Include="..\asp\kernel\taskhook.c" />
+    <ClCompile Include="..\asp\kernel\task_manage.c" />
+    <ClCompile Include="..\asp\kernel\task_refer.c" />
+    <ClCompile Include="..\asp\kernel\task_sync.c" />
+    <ClCompile Include="..\asp\kernel\task_term.c" />
+    <ClCompile Include="..\asp\kernel\time_event.c" />
+    <ClCompile Include="..\asp\kernel\time_manage.c" />
+    <ClCompile Include="..\asp\kernel\wait.c" />
+    <ClCompile Include="..\asp\library\strerror.c" />
+    <ClCompile Include="..\asp\library\vasyslog.c" />
+    <ClCompile Include="..\asp\target\sim\target_kernel_impl.c" />
+    <ClCompile Include="..\asp\target\sim\target_timer.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\ah_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\dest6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\esp_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\frag6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\icmp6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\if6_ether.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\in6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\in6_ifattach.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\in6_subr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\ip6_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\ip6_output.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\nd6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\nd6_nbr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\nd6_rtr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\route6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\scope6.c" />
+    <ClCompile Include="..\tinet\tinet\netinet6\udp6_input.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet6\udp6_subr.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\if_ether.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\in4_subr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\in_subr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\ip_icmp.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\ip_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\ip_output.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcpn_usrreq.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_output.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_subr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_subr_cs.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_subr_ncs.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_timer.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\tcp_usrreq.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\udp4_input.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udp4_subr.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udpn_input.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udpn_output.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udpn_subr.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udpn_usrreq.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udpn_usrreq_nblk.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\netinet\udp_input.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\udp_output.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\udp_subr.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\udp_usrreq.c" />
+    <ClCompile Include="..\tinet\tinet\netinet\udp_usrreq_nblk.c" />
+    <ClCompile Include="..\tinet\tinet\net\ethernet.c" />
+    <ClCompile Include="..\tinet\tinet\net\fcstab.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\genfcstab.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\if.c" />
+    <ClCompile Include="..\tinet\tinet\net\if_loop.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\net_buf.c" />
+    <ClCompile Include="..\tinet\tinet\net\net_count.c" />
+    <ClCompile Include="..\tinet\tinet\net\net_subr.c" />
+    <ClCompile Include="..\tinet\tinet\net\net_timer.c" />
+    <ClCompile Include="..\tinet\tinet\net\ppp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_auth.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_ccp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_fsm.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_hdlc.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_ipcp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_ipv6cp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_lcp.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_modem.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\tinet\tinet\net\ppp_upap.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="kernel_cfg.c" />
+    <ClCompile Include="main.c" />
+    <ClCompile Include="route_cfg.c" />
+    <ClCompile Include="tinet_cfg.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\asp\include\itron.h" />
+    <ClInclude Include="..\asp\include\kernel.h" />
+    <ClInclude Include="..\asp\include\log_output.h" />
+    <ClInclude Include="..\asp\include\queue.h" />
+    <ClInclude Include="..\asp\include\sil.h" />
+    <ClInclude Include="..\asp\include\t_stddef.h" />
+    <ClInclude Include="..\asp\include\t_stdlib.h" />
+    <ClInclude Include="..\asp\include\t_syslog.h" />
+    <ClInclude Include="..\asp\kernel\alarm.h" />
+    <ClInclude Include="..\asp\kernel\allfunc.h" />
+    <ClInclude Include="..\asp\kernel\check.h" />
+    <ClInclude Include="..\asp\kernel\cyclic.h" />
+    <ClInclude Include="..\asp\kernel\dataqueue.h" />
+    <ClInclude Include="..\asp\kernel\eventflag.h" />
+    <ClInclude Include="..\asp\kernel\exception.h" />
+    <ClInclude Include="..\asp\kernel\interrupt.h" />
+    <ClInclude Include="..\asp\kernel\kernel_impl.h" />
+    <ClInclude Include="..\asp\kernel\kernel_int.h" />
+    <ClInclude Include="..\asp\kernel\kernel_rename.h" />
+    <ClInclude Include="..\asp\kernel\kernel_unrename.h" />
+    <ClInclude Include="..\asp\kernel\mempfix.h" />
+    <ClInclude Include="..\asp\kernel\mutex.h" />
+    <ClInclude Include="..\asp\kernel\overrun.h" />
+    <ClInclude Include="..\asp\kernel\pridataq.h" />
+    <ClInclude Include="..\asp\kernel\semaphore.h" />
+    <ClInclude Include="..\asp\kernel\task.h" />
+    <ClInclude Include="..\asp\kernel\taskhook.h" />
+    <ClInclude Include="..\asp\kernel\time_event.h" />
+    <ClInclude Include="..\asp\kernel\wait.h" />
+    <ClInclude Include="..\asp\target\sim\dummy.h" />
+    <ClInclude Include="..\asp\target\sim\prc_rename.h" />
+    <ClInclude Include="..\asp\target\sim\prc_unrename.h" />
+    <ClInclude Include="..\asp\target\sim\target_kernel.h" />
+    <ClInclude Include="..\asp\target\sim\target_kernel_impl.h" />
+    <ClInclude Include="..\asp\target\sim\target_rename.h" />
+    <ClInclude Include="..\asp\target\sim\target_sil.h" />
+    <ClInclude Include="..\asp\target\sim\target_stddef.h" />
+    <ClInclude Include="..\asp\target\sim\target_timer.h" />
+    <ClInclude Include="..\asp\target\sim\target_unrename.h" />
+    <ClInclude Include="..\asp\target\sim\tinet_target_config.h" />
+    <ClInclude Include="..\asp\target\sim\tinet_target_defs.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\ether_phy.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\if_rx62n.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\if_rx62nreg.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\nic_rename.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\tinet_nic_config.h" />
+    <ClInclude Include="..\asp\tinet\netdev\if_rx62n\tinet_nic_defs.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\ah.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\ah6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\esp.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\esp6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\if6_ether.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\in6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\in6_ifattach.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\in6_rename.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\in6_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\ip6_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet6\nd6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\icmp6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\icmp_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\if_ether.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in4.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in4_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in_itron.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in_rename.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\in_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\ip.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\ip4_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\ip6.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\ip_icmp.h" />
+    <ClInclude Include="..\asp\tinet\netinet\ip_igmp.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\ip_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\tcp.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\tcp_fsm.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\tcp_seq.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\tcp_timer.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\tcp_var.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\udp.h" />
+    <ClInclude Include="..\tinet\tinet\netinet\udp_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\ethernet.h" />
+    <ClInclude Include="..\tinet\tinet\net\ether_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\if.h" />
+    <ClInclude Include="..\tinet\tinet\net\if6_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_arp.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_llc.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_loop.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_ppp.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_types.h" />
+    <ClInclude Include="..\tinet\tinet\net\if_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\net.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_buf.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_count.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_endian.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_rename.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_timer.h" />
+    <ClInclude Include="..\tinet\tinet\net\net_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_auth.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_ccp.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_fsm.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_hdlc.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_ipcp.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_ipv6cp.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_lcp.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_modem.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_upap.h" />
+    <ClInclude Include="..\tinet\tinet\net\ppp_var.h" />
+    <ClInclude Include="..\tinet\tinet\net\route.h" />
+    <ClInclude Include="..\tinet\tinet\net\tinet.h" />
+    <ClInclude Include="..\tinet\tinet\tinet_config.h" />
+    <ClInclude Include="..\tinet\tinet\tinet_defs.h" />
+    <ClInclude Include="..\tinet\tinet\tinet_kernel_defs.h" />
+    <ClInclude Include="kernel_cfg.h" />
+    <ClInclude Include="main.h" />
+    <ClInclude Include="tinet_app_config.h" />
+    <ClInclude Include="tinet_cfg.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

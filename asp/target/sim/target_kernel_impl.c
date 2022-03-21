@@ -167,6 +167,8 @@ void start_dispatch(void)
 	for (i = 0; i < TNUM_TSKID; i++) {
 		TASK_INF[i].tinib.stk = NULL;
 	}
+
+	scheduler_eixt = 1;
 }
 
 void target_exit(void)

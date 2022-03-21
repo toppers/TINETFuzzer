@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCPLoopback", "TCPLoopback\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCPLoopbackWsl", "TCPLoopbackWsl\TCPLoopbackWsl.vcxproj", "{D4A9A8AF-6399-4A52-9555-C952DD67DE79}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ARPTable", "ARPTable\ARPTable.vcxproj", "{CF586E12-12B1-4669-8F9D-924C7C255B62}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -40,6 +42,14 @@ Global
 		{D4A9A8AF-6399-4A52-9555-C952DD67DE79}.Release|x64.Build.0 = Release|x64
 		{D4A9A8AF-6399-4A52-9555-C952DD67DE79}.Release|x86.ActiveCfg = Release|x86
 		{D4A9A8AF-6399-4A52-9555-C952DD67DE79}.Release|x86.Build.0 = Release|x86
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Debug|x64.ActiveCfg = Debug|x64
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Debug|x64.Build.0 = Debug|x64
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Debug|x86.ActiveCfg = Debug|Win32
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Debug|x86.Build.0 = Debug|Win32
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x64.ActiveCfg = Release|x64
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x64.Build.0 = Release|x64
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x86.ActiveCfg = Release|Win32
+		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

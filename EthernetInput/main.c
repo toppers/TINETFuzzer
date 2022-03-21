@@ -6,9 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#include <assert.h>
+
 #include <kernel.h>
 #include <queue.h>
-#include <assert.h>
 #include <t_stdlib.h>
 #include <tinet_defs.h>
 #include <tinet_config.h>
@@ -221,7 +222,7 @@ ER tget_mpf(ID mpfid, void **p_blk, TMO tmout)
 		return E_OBJ;
 	}
 
-	QUEUE *node = malloc(sizeof(QUEUE) + sizeof(ID) + len);
+	QUEUE *node = (QUEUE *)malloc(sizeof(QUEUE) + sizeof(ID) + len);
 	if (node == NULL) {
 		*p_blk = NULL;
 		return E_NOMEM;
@@ -477,6 +478,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	memset(tcp_twcep, 0, sizeof(tcp_twcep));
 
 	sta_ker();
+
+	ext_ker();
 
 	clear_fixedblocks();
 
