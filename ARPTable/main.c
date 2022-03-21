@@ -768,6 +768,16 @@ ER rel_mpf(ID mpfid, void *blk)
 	return E_OK;
 }
 
+static bool_t
+has_hold(T_ARP_ENTRY *ent)
+{
+#ifndef TINET_ARP_HOLD_QUEUE
+	return ent->hold != 0;
+#else
+	return !queue_empty(&ent->holds);
+#endif
+}
+
 void clear_fixedblocks()
 {
 	QUEUE temp;
@@ -780,12 +790,12 @@ void clear_fixedblocks()
 		/* 同じIPアドレスが有効なARPエントリには無いはず */
 		T_ARP_ENTRY *pos = (T_ARP_ENTRY *)arp_get_cache(), *end = &pos[NUM_ARP_ENTRY];
 		for (; pos < end; pos++) {
-			if ((pos->expire == 0) && (pos->hold == NULL))
+			if ((pos->expire == 0) && !has_hold(pos))
 				continue;
 
 			T_ARP_ENTRY *pos2 = &pos[1];
 			for (; pos2 < end; pos2++) {
-				if ((pos2->expire == 0) && (pos2->hold == NULL))
+				if ((pos2->expire == 0) && !has_hold(pos2))
 					continue;
 
 				assert(pos->ip_addr != pos2->ip_addr);
