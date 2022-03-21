@@ -373,6 +373,8 @@ uint8_t udp_buf2[2 * UDP_SOCKET_BUF_SIZE];
 T_IPV4EP dstaddr2 = { MAKE_IPV4_ADDR(192, 168, 137, 203), 2222 };
 volatile int termine_task1;
 volatile int termine_task2;
+volatile int dstaddr_task1;
+volatile int dstaddr_task2;
 volatile int snd_dat_task1;
 volatile int rcv_dat_task1;
 volatile int snd_dat_task2;
@@ -427,6 +429,7 @@ void task1(void *arg)
 	T_UDP_CCEP ccep = { 0, { MAKE_IPV4_ADDR(0, 0, 0, 0), 2222 }, (FP)socket_udp_callback };
 	uint8_t *p_snd_bef = udp_buf1;
 	int len = UDP_SOCKET_BUF_SIZE;
+	T_IPV4EP *dstaddr;
 
 	slp_tsk();
 
@@ -434,15 +437,21 @@ void task1(void *arg)
 	assert(ret == E_OK);
 
 	termine_task1 = 0;
+	dstaddr_task1 = 0;
 	snd_dat_task1 = 0;
 	rcv_dat_task1 = 0;
 
 	while (!termine_task1) {
 		slp_tsk();
 
+		if (dstaddr_task1 == 0)
+			dstaddr = &dstaddr1;
+		else
+			dstaddr = &dstaddr2;
+
 		snd_dat_task1++;
 		memset(p_snd_bef, 0x22, len);
-		ret = udp_snd_dat(USR_UDP_CEP1, &dstaddr1, p_snd_bef, len, TMO_FEVR);
+		ret = udp_snd_dat(USR_UDP_CEP1, dstaddr, p_snd_bef, len, TMO_FEVR);
 		assert(ret == len);
 
 		while (snd_dat_task1 != rcv_dat_task1)
@@ -459,6 +468,7 @@ void task2(void *arg)
 	T_UDP_CCEP ccep = { 0, { MAKE_IPV4_ADDR(0, 0, 0, 0), 3333 }, (FP)socket_udp_callback };
 	uint8_t *p_snd_bef = udp_buf2;
 	int len = UDP_SOCKET_BUF_SIZE;
+	T_IPV4EP *dstaddr;
 
 	slp_tsk();
 
@@ -466,15 +476,21 @@ void task2(void *arg)
 	assert(ret == E_OK);
 
 	termine_task2 = 0;
+	dstaddr_task2 = 1;
 	snd_dat_task2 = 0;
 	rcv_dat_task2 = 0;
 
 	while (!termine_task2) {
 		slp_tsk();
 
+		if (dstaddr_task2 == 0)
+			dstaddr = &dstaddr1;
+		else
+			dstaddr = &dstaddr2;
+
 		snd_dat_task2++;
 		memset(p_snd_bef, 0x33, len);
-		ret = udp_snd_dat(USR_UDP_CEP2, &dstaddr2, p_snd_bef, len, TMO_FEVR);
+		ret = udp_snd_dat(USR_UDP_CEP2, dstaddr, p_snd_bef, len, TMO_FEVR);
 		assert(ret == len);
 
 		while (snd_dat_task2 != rcv_dat_task2)
@@ -498,6 +514,10 @@ void task3(void *arg)
 		"reply TASK2\n",
 		"terminate TASK1\n",
 		"terminate TASK2\n",
+		"dstaddr TASK1 0\n",
+		"dstaddr TASK1 1\n",
+		"dstaddr TASK2 0\n",
+		"dstaddr TASK2 1\n"
 	};
 
 	while (g_script < g_script_end) {
@@ -537,6 +557,18 @@ void task3(void *arg)
 			break;
 		case 5:
 			termine_task2 = 1;
+			break;
+		case 6:
+			dstaddr_task1 = 0;
+			break;
+		case 7:
+			dstaddr_task1 = 1;
+			break;
+		case 8:
+			dstaddr_task2 = 0;
+			break;
+		case 9:
+			dstaddr_task2 = 1;
 			break;
 		}
 	}
@@ -745,9 +777,23 @@ void clear_fixedblocks()
 
 #ifdef SUPPORT_ETHER
 	{
-		/* ARPテーブルに残っているパケットは解放しない */
+		/* 同じIPアドレスが有効なARPエントリには無いはず */
 		T_ARP_ENTRY *pos = (T_ARP_ENTRY *)arp_get_cache(), *end = &pos[NUM_ARP_ENTRY];
 		for (; pos < end; pos++) {
+			if ((pos->expire == 0) && (pos->hold == NULL))
+				continue;
+
+			T_ARP_ENTRY *pos2 = &pos[1];
+			for (; pos2 < end; pos2++) {
+				if ((pos2->expire == 0) && (pos2->hold == NULL))
+					continue;
+
+				assert(pos->ip_addr != pos2->ip_addr);
+			}
+		}
+
+		/* ARPテーブルに残っているパケットは解放しない */
+		for (pos = (T_ARP_ENTRY *)arp_get_cache(); pos < end; pos++) {
 			memset(pos, 0, sizeof(T_ARP_ENTRY));
 		}
 	}
