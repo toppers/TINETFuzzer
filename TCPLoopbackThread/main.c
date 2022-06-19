@@ -1,4 +1,4 @@
-// TCPLoopbackWsl.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
+// TCPLoopback.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
 //
 
 #include <stdint.h>
@@ -235,7 +235,8 @@ void task2(void *arg)
 	ret = tcp_con_cep(USR_TCP_CEP2, &crep, &dstaddr, TMO_FEVR);
 	if (ret == E_CLS)
 		goto error;
-	assert(ret == E_OK);
+	if (ret != E_OK)
+		assert(ret == E_OK);
 
 	while (!termine_task2) {
 		slp_tsk();
@@ -810,7 +811,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 	clear_fixedblocks();
 
-	raise_soft_int(0, NULL);
 	clean_packets(&output_packets);
 	clean_packets(&input_packets);
 

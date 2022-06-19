@@ -1,9 +1,6 @@
 ﻿#include <stdint.h>
 #include <stdbool.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <stdatomic.h>
-#include <stdlib.h>
+#include <windows.h>
 
 typedef struct _queue_t
 {
@@ -25,7 +22,7 @@ typedef struct _cycle_timer_tree_t cycle_timer_tree_t;
 typedef struct _cycle_timer_t {
 	queue_t timer_node;
 	cycle_timer_tree_t *parent;
-	_Atomic bool isactive;
+	bool isactive;
 	uint64_t timeout;
 	void *client_data;
 	cycle_timer_proc_t *proc;

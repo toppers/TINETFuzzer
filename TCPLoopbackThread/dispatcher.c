@@ -4,25 +4,30 @@
 #include <stddef.h>
 #include <string.h>
 #include <malloc.h>
-#define __USE_POSIX199309
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
 #include <setjmp.h>
-//#define __USE_GNU
-#define __USE_POSIX
-#define __USE_XOPEN2K8
-#define __USE_XOPEN2K
-#define __USE_UNIX98
-#include <signal.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <stdatomic.h>
+#include <windows.h>
 #include "dispatcher.h"
-#define __USE_GNU
-#include <unistd.h>
-#include <sys/types.h>
 #include <queue.h>
+
+//#define DEBUG_LOG
+#ifdef DEBUG_LOG
+#define LOG_APPEND(kernel, context, state) logger_t *logger; (void)logger; do { logger = logger_create(kernel, context, state); } while (false)
+#define LOG_APPEND2(kernel, context, state) do { logger = logger_create(kernel, context, state); } while (false)
+#define LOG_UPDATE_LOCK logger->lock = kernel->lock
+#define LOG_UPDATE_COUNT(count) logger->count = count
+#define LOG_INCREMENT_COUNT logger->count++
+#define LOG_LOGING context->logging
+#else
+#define LOG_APPEND(kernel, context, state) do { } while (false)
+#define LOG_APPEND2(kernel, context, state) do { } while (false)
+#define LOG_UPDATE_LOCK do { } while (false)
+#define LOG_UPDATE_COUNT(count) do { } while (false)
+#define LOG_INCREMENT_COUNT do { } while (false)
+#define LOG_LOGING false
+#endif
 
 #define p_runtsk _kernel_p_runtsk
 #define p_schedtsk _kernel_p_schedtsk
@@ -89,64 +94,59 @@ typedef enum cpu_context_state_t {
 	CPU_CONTEXT_RUNNING = 2,
 	CPU_CONTEXT_SUSPEND = 3 + 0x200,
 	CPU_CONTEXT_DISPATCH = 4 + 0x100,
-	CPU_CONTEXT_INTERRUPT = 5 + 0x100
+	CPU_CONTEXT_SUSPEND2 = 5 + 0x200,
+	CPU_CONTEXT_INTERRUPT = 6 + 0x100
 } cpu_context_state_t;
 
 typedef struct _cpu_context_t
 {
 	kernel_t *kernel;
-	pthread_t thread;
-	pid_t thread_id;
-	sem_t start_event;
+	HANDLE thread;
+	DWORD thread_id;
 	void *task;
-	_Atomic bool terminate;
-	_Atomic cpu_context_state_t ready;
+	bool terminate;
+	cpu_context_state_t ready;
 	jmp_buf RESTART;
 	cycle_timer_t dispatch_req;
-	uint32_t saved_lock;
+	LONG saved_lock;
+#ifdef DEBUG_LOG
+	bool logging;
+	bool suspend_req;
+#endif
 } cpu_context_t;
 
-_Atomic pthread_key_t g_tls_index = 0xFFFFFFFF;
-pthread_t null_thread = { 0 };
-sem_t null_sem = { 0 };
-int sem_equal(sem_t *a, sem_t *b) {
-	return memcmp(a, b, sizeof(sem_t)) == 0;
-}
+DWORD g_tls_index = 0xFFFFFFFF;
 
 void cpu_context_suspend(cpu_context_t *context);
 void cpu_context_resume(cpu_context_t *context);
-void *cpu_context_thread_proc(void *param);
+ULONG CALLBACK cpu_context_thread_proc(PVOID param);
 void cpu_context_do_dispatch(void *client_data);
 
 static cpu_context_t *cpu_context_get_current()
 {
-	return (cpu_context_t *)pthread_getspecific(g_tls_index);
+	return (cpu_context_t *)TlsGetValue(g_tls_index);
 }
 
 void cpu_context_init(cpu_context_t *context, kernel_t *kernel)
 {
 	context->kernel = kernel;
-	context->thread = null_thread;
+	context->thread = NULL;
 	context->thread_id = 0;
-	context->start_event = null_sem;
 	context->task = NULL;
 	context->terminate = false;
 	context->ready = CPU_CONTEXT_INIT;
 
 	if (g_tls_index == 0xFFFFFFFF) {
-		pthread_key_create(&g_tls_index, NULL);
+		g_tls_index = TlsAlloc();
 	}
 }
 
 void cpu_context_deinit(cpu_context_t *context)
 {
-	if (sem_equal(&context->start_event, &null_sem) == 0) {
-		sem_destroy(&context->start_event);
-	}
-
 	if (context->thread_id != 0) {
-		//pthread_cancel(context->thread);
-		context->thread = null_thread;
+		//TerminateThread(context->thread, 0);
+		CloseHandle(context->thread);
+		context->thread = NULL;
 		context->thread_id = 0;
 	}
 	free(context);
@@ -154,9 +154,6 @@ void cpu_context_deinit(cpu_context_t *context)
 
 void cpu_context_activate(cpu_context_t *context, void *task)
 {
-	int ret;
-	pthread_attr_t attr;
-
 	context->task = task;
 
 	if (context->thread_id != 0) {
@@ -165,43 +162,27 @@ void cpu_context_activate(cpu_context_t *context, void *task)
 		return;
 	}
 	else {
-		ret = sem_init(&context->start_event, 0, 0);
-		if (ret != 0)
-			__builtin_trap();
-
-		ret = pthread_attr_init(&attr);
-		if (ret != 0)
-			__builtin_trap();
-
-		ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		if (ret != 0)
-			__builtin_trap();
-
-		ret = pthread_create(&context->thread, 0, cpu_context_thread_proc, (void *)context);
-		if (ret != 0)
-			__builtin_trap();
-
-		ret = pthread_attr_destroy(&attr);
-		if (ret != 0)
+		context->thread = CreateThread(NULL, 0, cpu_context_thread_proc, (void *)context, 0, &context->thread_id);
+		if (context->thread == NULL)
 			__builtin_trap();
 	}
 
 	while (context->ready != CPU_CONTEXT_READY) {
-		pthread_yield();
+		SwitchToThread();
 	}
-	pthread_yield();
+	SwitchToThread();
 }
 
 void cpu_context_start(cpu_context_t *context)
 {
-	int ret;
+	DWORD ret;
 
 	context->terminate = false;
 	context->saved_lock = 1;
 	context->ready = CPU_CONTEXT_READY;
 
-	ret = sem_wait(&context->start_event);
-	if (ret != 0)
+	ret = SuspendThread(context->thread);
+	if (ret < 0)
 		__builtin_trap();
 
 	context->ready = CPU_CONTEXT_RUNNING;
@@ -213,38 +194,26 @@ void cpu_context_start(cpu_context_t *context)
 
 void cpu_context_exit(cpu_context_t *context)
 {
-	//pthread_exit(0);
+	//ExitThread(0);
 	context->terminate = false;
 	longjmp(context->RESTART, 1);
 }
 
 void cpu_context_terminate(cpu_context_t *context)
 {
-	//pthread_cancel(context->thread);
+	//TerminateThread(context->thread, 0);
 	if (context->ready == CPU_CONTEXT_READY)
 		return;
 	context->terminate = true;
 	while (context->ready == CPU_CONTEXT_RUNNING)
-		pthread_yield();
-	assert(context->terminate || context->ready == CPU_CONTEXT_READY);
+		SwitchToThread();
 }
 
-static void cpu_context_suspend_handler(int sig);
-
-void *cpu_context_thread_proc(void *param)
+ULONG CALLBACK cpu_context_thread_proc(PVOID param)
 {
-	int ret;
 	cpu_context_t *context = (cpu_context_t *)param;
 
-	context->thread_id = gettid();
-
-	ret = pthread_setspecific(g_tls_index, context);
-	if (ret != 0)
-		__builtin_trap();
-
-	ret = signal(SIGUSR1, cpu_context_suspend_handler);
-	if (ret == SIG_ERR)
-		__builtin_trap();
+	TlsSetValue(g_tls_index, context);
 
 	setjmp(context->RESTART);
 
@@ -257,12 +226,12 @@ void *cpu_context_thread_proc(void *param)
 
 void cpu_context_suspend(cpu_context_t *context)
 {
-	int ret;
+	DWORD ret;
 
 	context->ready = CPU_CONTEXT_SUSPEND;
 
-	ret = sem_wait(&context->start_event);
-	if (ret != 0)
+	ret = SuspendThread(context->thread);
+	if (ret < 0)
 		__builtin_trap();
 
 	context->ready = CPU_CONTEXT_RUNNING;
@@ -272,42 +241,17 @@ void cpu_context_suspend(cpu_context_t *context)
 	}
 }
 
-static void cpu_context_suspend_handler(int sig)
-{
-	if (sig == SIGUSR1) {
-		int ret = signal(SIGUSR1, cpu_context_suspend_handler);
-		if (ret == SIG_ERR)
-			__builtin_trap();
-
-		cpu_context_t *context = cpu_context_get_current();
-		if (context->ready == CPU_CONTEXT_RUNNING)
-			cpu_context_suspend(context);
-	}
-}
-
-void cpu_context_suspend2(cpu_context_t *context)
-{
-	int ret;
-	ret = pthread_kill(context->thread, SIGUSR1);
-	if (ret != 0)
-		__builtin_trap();
-}
-
 void cpu_context_resume(cpu_context_t *context)
 {
-	int lock;
-	int ret;
+	DWORD ret;
 
 	for (;;) {
-		ret = sem_getvalue(&context->start_event, &lock);
+		ret = ResumeThread(context->thread);
 		if (ret != 0)
-			__builtin_trap();
-		if (lock == 0)
 			break;
-		pthread_yield();
+		SwitchToThread();
 	}
-	ret = sem_post(&context->start_event);
-	if (ret != 0)
+	if (ret != 1)
 		__builtin_trap();
 }
 
@@ -326,14 +270,14 @@ typedef enum _kernel_mode_t {
 } kernel_mode_t;
 
 struct _kernel_t {
-	pid_t thread_id;
-	sem_t kernel_mode;
-	sem_t start_event;
-	_Atomic kernel_mode_t mode;
+	DWORD thread_id;
+	HANDLE kernel_mode;
+	HANDLE start_event;
+	kernel_mode_t mode;
 	cpu_context_t *run_context;
 	cpu_context_t *sched_context;
-	pthread_mutex_t timer_mutex;
-	_Atomic bool terminate;
+	HANDLE timer_mutex;
+	bool terminate;
 	cpu_context_t **contexts;
 	int context_count;
 
@@ -346,19 +290,192 @@ struct _kernel_t {
 	cycle_timer_t dispatch_req;
 	interrupt_t interrupts[2];
 
-	_Atomic int32_t lock;
+	LONG lock;
 	QUEUE pending_queue;
+#ifdef DEBUG_LOG
+	QUEUE lock_queue;
+	QUEUE free_queue;
+#endif
 };
+#ifdef DEBUG_LOG
+typedef enum logger_state_t
+{
+	LOGGER_STATE_NONE,
+	LOGGER_STATE_START,
+	LOGGER_STATE_DISPATCH,
+	LOGGER_STATE_DO_DISPATCH,
+	LOGGER_STATE_INTERRUPT,
+	LOGGER_STATE_DO_INTERRUPT,
+	LOGGER_STATE_DO_INTERRUPT_END,
+	LOGGER_STATE_PEND_INTERRUPT,
+	LOGGER_STATE_LOCK_CPU,
+	LOGGER_STATE_UNLOCK_CPU,
+	LOGGER_STATE_SUSPEND2,
+	LOGGER_STATE_RESUME,
+	LOGGER_STATE_SENSE_LOCK,
+	LOGGER_STATE_PASS_RESUME
+} logger_state_t;
 
+typedef struct logger_t {
+	QUEUE queue;
+	logger_state_t state;
+	DWORD thread_id;
+	kernel_mode_t mode;
+	LONG lock;
+	DWORD run_context;
+	cpu_context_state_t run_context_ready;
+	DWORD sched_context;
+	cpu_context_state_t sched_context_ready;
+	bool isactive;
+	DWORD current_context;
+	cpu_context_state_t current_context_ready;
+	int count;
+} logger_t;
+
+logger_t *logger_create(kernel_t *kernel, cpu_context_t *context, logger_state_t state)
+{
+	if (context != NULL)
+		context->logging = true;
+
+	DWORD ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
+		__builtin_trap();
+
+	logger_t *logger;
+	if (queue_empty(&kernel->free_queue)) {
+		logger = malloc(sizeof(logger_t));
+		if (logger == NULL)
+			__builtin_trap();
+	}
+	else {
+		logger = (logger_t *)queue_delete_next(&kernel->free_queue);
+	}
+
+	queue_initialize(&logger->queue);
+	logger->state = state;
+	logger->thread_id = GetCurrentThreadId();
+	logger->mode = kernel->mode;
+	logger->lock = kernel->lock;
+	logger->run_context = kernel->run_context == NULL ? 0 : kernel->run_context->thread_id;
+	logger->run_context_ready = kernel->run_context == NULL ? 0 : kernel->run_context->ready;
+	logger->sched_context = kernel->sched_context == NULL ? 0 : kernel->sched_context->thread_id;
+	logger->sched_context_ready = kernel->sched_context == NULL ? 0 : kernel->sched_context->ready;
+	logger->isactive = kernel->first_cycle_timer_timeout != ~0ULL;
+	logger->current_context = context == NULL ? 0 : context->thread_id;
+	logger->current_context_ready = context == NULL ? 0 : context->ready;
+	logger->count = 0;
+
+	queue_insert_next(&kernel->lock_queue, &logger->queue);
+
+	BOOL ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
+		__builtin_trap();
+
+	if (kernel->thread_id != GetCurrentThreadId()) {
+		context->logging = false;
+
+		while (context->suspend_req)
+			SwitchToThread();
+	}
+
+	return logger;
+}
+
+const char *get_bool_string(bool value)
+{
+	return value ? "true" : "false";
+}
+
+const char *get_cpu_context_state_string(cpu_context_state_t state)
+{
+	switch (state) {
+	case CPU_CONTEXT_INIT: return "CPU_CONTEXT_INIT";
+	case CPU_CONTEXT_READY: return "CPU_CONTEXT_READY";
+	case CPU_CONTEXT_RUNNING: return "CPU_CONTEXT_RUNNING";
+	case CPU_CONTEXT_SUSPEND: return "CPU_CONTEXT_SUSPEND";
+	case CPU_CONTEXT_DISPATCH: return "CPU_CONTEXT_DISPATCH";
+	case CPU_CONTEXT_SUSPEND2: return "CPU_CONTEXT_SUSPEND2";
+	case CPU_CONTEXT_INTERRUPT: return "CPU_CONTEXT_INTERRUPT";
+	default: return "";
+	}
+}
+
+const char *get_kernel_mode_string(kernel_mode_t mode)
+{
+	switch (mode) {
+	case KERNEL_MODE_WAIT: return "KERNEL_MODE_WAIT";
+	case KERNEL_MODE_TIMEOUT: return "KERNEL_MODE_TIMEOUT";
+	case KERNEL_MODE_PASSIVE: return "KERNEL_MODE_PASSIVE";
+	case KERNEL_MODE_AUTONOMOUS: return "KERNEL_MODE_AUTONOMOUS";
+	default: return "";
+	}
+}
+
+const char *get_logger_state_string(logger_state_t state)
+{
+	switch (state) {
+	case LOGGER_STATE_NONE: return "LOGGER_STATE_NONE";
+	case LOGGER_STATE_START: return "LOGGER_STATE_START";
+	case LOGGER_STATE_DISPATCH: return "LOGGER_STATE_DISPATCH";
+	case LOGGER_STATE_DO_DISPATCH: return "LOGGER_STATE_DO_DISPATCH";
+	case LOGGER_STATE_INTERRUPT: return "LOGGER_STATE_INTERRUPT";
+	case LOGGER_STATE_DO_INTERRUPT: return "LOGGER_STATE_DO_INTERRUPT";
+	case LOGGER_STATE_DO_INTERRUPT_END: return "LOGGER_STATE_DO_INTERRUPT_END";
+	case LOGGER_STATE_PEND_INTERRUPT:  return "LOGGER_STATE_PEND_INTERRUPT";
+	case LOGGER_STATE_LOCK_CPU: return "LOGGER_STATE_LOCK_CPU";
+	case LOGGER_STATE_UNLOCK_CPU: return "LOGGER_STATE_UNLOCK_CPU";
+	case LOGGER_STATE_SUSPEND2: return "LOGGER_STATE_SUSPEND2";
+	case LOGGER_STATE_RESUME: return "LOGGER_STATE_RESUME";
+	case LOGGER_STATE_SENSE_LOCK: return "LOGGER_STATE_SENSE_LOCK";
+	case LOGGER_STATE_PASS_RESUME: return "LOGGER_STATE_PASS_RESUME";
+	default: return "";
+	}
+}
+
+void logger_dump(kernel_t *kernel)
+{
+	QUEUE *lock_queue = &kernel->lock_queue;
+	FILE *file;
+
+	fopen_s(&file, "logger_dump", "w");
+
+	fprintf(file, "state\tthread_id\tmode\tlock\trun_context\trun_context_ready\tsched_context\tsched_context_ready\tisactive\tcurrent_context\tcurrent_context_ready\tcount\n");
+
+	DWORD ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
+		__builtin_trap();
+
+	for (logger_t *logger = (logger_t *)lock_queue->p_prev;
+		logger != (logger_t *)lock_queue;
+		logger = (logger_t *)logger->queue.p_prev) {
+		fprintf(file, "%s\t%lu\t%s\t%ld\t%lu\t%s\t%lu\t%s\t%s\t%lu\t%s\t%d\n",
+			get_logger_state_string(logger->state),
+			logger->thread_id,
+			get_kernel_mode_string(logger->mode),
+			logger->lock,
+			logger->run_context,
+			get_cpu_context_state_string(logger->run_context_ready),
+			logger->sched_context,
+			get_cpu_context_state_string(logger->sched_context_ready),
+			get_bool_string(logger->isactive),
+			logger->current_context,
+			get_cpu_context_state_string(logger->current_context_ready),
+			logger->count);
+	}
+
+	BOOL ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
+		__builtin_trap();
+
+	fclose(file);
+}
+#endif
 void kernel_do_dispatch(void *client_data);
 void kernel_do_interrupt(void *client_data);
 void kernel_execute(kernel_t *kernel);
 
 void kernel_init(kernel_t *kernel, uint32_t cycle_timer_rate)
 {
-	int ret;
-	pthread_mutexattr_t attr;
-
 	cycle_timer_tree_init(&kernel->cycle_timer_tree);
 
 	p_schedtsk = tasks_get_tcb(0);
@@ -377,54 +494,30 @@ void kernel_init(kernel_t *kernel, uint32_t cycle_timer_rate)
 	interrupt->cycle = 1;
 	cycle_timer_init(&interrupt->timer, kernel_do_interrupt, interrupt);
 
-	//struct sigaction action;
-	//memset(&action, 0, sizeof(action));
-	//sigemptyset(&action.sa_mask);
-	//action.sa_flags = SA_RESTART;
-	//action.sa_handler = cpu_context_suspend_handler;
-	//if (sigaction(SIGUSR1, &action, NULL) != 0)
-	//	__builtin_trap();
-
-	//sigset_t set;
-	//sigemptyset(&set);
-	//sigaddset(&set, SIGUSR1);
-	//ret = pthread_sigmask(SIG_BLOCK, &set, NULL);
-
-	ret = sem_init(&kernel->kernel_mode, 0, 1);
-	if (ret != 0) {
+	kernel->kernel_mode = CreateSemaphore(NULL, 1, 1, NULL);
+	if (kernel->kernel_mode == NULL) {
 		__builtin_trap();
 	}
 
-	ret = sem_init(&kernel->start_event, 0, 0);
-	if (ret != 0) {
+	kernel->start_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	if (kernel->start_event == NULL) {
 		__builtin_trap();
 	}
 
 	kernel->sched_context = NULL;
 	kernel->run_context = NULL;
 
-	ret = pthread_mutexattr_init(&attr);
-	if (ret < 0) {
-		__builtin_trap();
-	}
-
-	ret = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
-	if (ret < 0) {
-		__builtin_trap();
-	}
-
-	ret = pthread_mutex_init(&kernel->timer_mutex, &attr);
-	if (ret < 0) {
-		__builtin_trap();
-	}
-
-	ret = pthread_mutexattr_destroy(&attr);
-	if (ret < 0) {
+	kernel->timer_mutex = CreateMutex(NULL, FALSE, NULL);
+	if (kernel->timer_mutex == NULL) {
 		__builtin_trap();
 	}
 
 	kernel->lock = 0;
 	queue_initialize(&kernel->pending_queue);
+#ifdef DEBUG_LOG
+	queue_initialize(&kernel->lock_queue);
+	queue_initialize(&kernel->free_queue);
+#endif
 	kernel->terminate = false;
 
 	kernel->first_cycle_timer_timeout = ~0ULL;
@@ -438,17 +531,17 @@ void kernel_init(kernel_t *kernel, uint32_t cycle_timer_rate)
 		__builtin_trap();
 	}
 
-	kernel->thread_id = gettid();
+	kernel->thread_id = GetCurrentThreadId();
 	kernel_lock_cpu(kernel);
 }
 #if 0
 void kernel_deinit(kernel_t *kernel)
 {
-	pthread_mutex_destroy(&kernel->timer_mutex);
+	CloseHandle(kernel->timer_mutex);
 
-	sem_destroy(&kernel->start_event);
+	CloseHandle(kernel->start_event);
 
-	sem_destroy(&kernel->kernel_mode);
+	CloseHandle(kernel->kernel_mode);
 
 	free(kernel->contexts);
 }
@@ -467,33 +560,34 @@ void kernel_deinit(kernel_t *kernel)
 			if (context == NULL)
 				continue;
 			if ((context->ready & 0x100) != 0) {
-				int sval = 0;
-				int ret = sem_getvalue(&kernel->kernel_mode, &sval);
-				if (ret != 0)
+				BOOL ret = ReleaseSemaphore(kernel->kernel_mode, 1, NULL);
+				if (!ret)
 					__builtin_trap();
-				if (sval == 0) {
-					ret = sem_post(&kernel->kernel_mode);
-					if (ret != 0)
-						__builtin_trap();
-				}
 				while ((context->ready & 0x100) != 0)
-					pthread_yield();
+					SwitchToThread();
 			}
-			if ((context->ready == CPU_CONTEXT_SUSPEND) && !context->terminate)
-				context->terminate = true;
-			if (context->terminate) {
-				cpu_context_resume(context);
-				while (context->terminate)
-					pthread_yield();
+			if (context->ready == CPU_CONTEXT_SUSPEND2) {
+				kernel->contexts[i] = NULL;
+				TerminateThread(context->thread, 0);
+				free(context);
 			}
-			if (context->ready == CPU_CONTEXT_READY)
-				continue;
+			else {
+				if ((context->ready == CPU_CONTEXT_SUSPEND) && !context->terminate)
+					context->terminate = true;
+				if (context->terminate) {
+					cpu_context_resume(context);
+					while (context->terminate)
+						SwitchToThread();
+				}
+				if (context->ready == CPU_CONTEXT_READY)
+					continue;
+			}
 
 			restart = false;
 		}
 		if (restart)
 			break;
-		pthread_yield();
+		SwitchToThread();
 	}
 }
 #endif
@@ -514,16 +608,100 @@ bool kernel_sense_lock(kernel_t *kernel)
 {
 	cpu_context_t *context = cpu_context_get_current();
 
+	LOG_APPEND(kernel, context, LOGGER_STATE_SENSE_LOCK);
+
 	if (context != NULL) {
 		do {
 			if (context->terminate) {
 				cpu_context_exit(context);
 			}
-			pthread_yield();
+			LOG_INCREMENT_COUNT;
+			SwitchToThread();
 		} while (kernel->mode != KERNEL_MODE_WAIT);
 	}
 
 	return kernel->lock != 0;
+}
+
+void kernel_lock_cpu(kernel_t *kernel)
+{
+	cpu_context_t *context = cpu_context_get_current();
+
+	LOG_APPEND(kernel, context, LOGGER_STATE_LOCK_CPU);
+
+	if (context != NULL) {
+		for (;;) {
+			InterlockedCompareExchange(&kernel->lock, context->thread_id, 0);
+			if (kernel->lock == context->thread_id) {
+				break;
+			}
+			SwitchToThread();
+			LOG_INCREMENT_COUNT;
+			if (context->terminate) {
+				cpu_context_exit(context);
+			}
+		}
+
+		if (context->terminate) {
+			cpu_context_exit(context);
+		}
+	}
+	else {
+		for (;;) {
+			InterlockedCompareExchange(&kernel->lock, kernel->thread_id, 0);
+			if (kernel->lock == kernel->thread_id) {
+				break;
+			}
+
+			cpu_context_t *run_context = kernel->run_context;
+			if (run_context != NULL) {
+				if ((run_context->ready & 0x100) != 0) {
+					BOOL ret = ReleaseSemaphore(kernel->kernel_mode, 1, NULL);
+					if (!ret)
+						__builtin_trap();
+					while ((run_context->ready & 0x100) != 0)
+						SwitchToThread();
+				}
+				if ((run_context->ready & 0x200) != 0) {
+					DWORD ret;
+					do {
+						ret = ResumeThread(run_context->thread);
+						if (ret < 0)
+							__builtin_trap();
+					} while (ret != 1);
+
+					if (run_context->ready == CPU_CONTEXT_SUSPEND2) {
+						run_context->ready = CPU_CONTEXT_RUNNING;
+					}
+
+					while ((run_context->ready & 0x200) != 0)
+						SwitchToThread();
+				}
+
+				if (run_context->dispatch_req.isactive)
+					run_context->dispatch_req.isactive = false;
+
+				kernel->mode = KERNEL_MODE_TIMEOUT;
+			}
+			SwitchToThread();
+			LOG_INCREMENT_COUNT;
+		}
+	}
+}
+
+void kernel_unlock_cpu(kernel_t *kernel)
+{
+	cpu_context_t *context = cpu_context_get_current();
+
+	LOG_APPEND(kernel, context, LOGGER_STATE_UNLOCK_CPU);
+
+	LONG lock = InterlockedExchange(&kernel->lock, 0);
+	if (lock == 0)
+		__builtin_trap();
+
+	if (context != NULL && context->terminate) {
+		cpu_context_exit(context);
+	}
 }
 
 void *kernel_new_context(kernel_t *kernel, void *p_tcb)
@@ -541,15 +719,17 @@ void *kernel_new_context(kernel_t *kernel, void *p_tcb)
 		kernel->contexts[i] = context;
 	}
 
-	int ret = pthread_mutex_lock(&kernel->timer_mutex);
-	if (ret != 0)
+	DWORD ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	cycle_timer_init(&context->dispatch_req, cpu_context_do_dispatch, context);
 
-	ret = pthread_mutex_unlock(&kernel->timer_mutex);
-	if (ret != 0)
+	BOOL ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
 		__builtin_trap();
+
+	LOG_APPEND(kernel, context, LOGGER_STATE_START);
 
 	cpu_context_activate(context, p_tcb);
 	return context;
@@ -563,13 +743,14 @@ void kernel_task_start(kernel_t *kernel)
 
 bool kernel_event_add(kernel_t *kernel, cycle_timer_t *timer, uint64_t cycles, cycle_timer_proc_t *proc, void *client_data)
 {
-	int ret;
+	DWORD ret;
+	BOOL ret2;
 
 	if (!proc)
 		return false;
 
-	ret = pthread_mutex_lock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	timer->proc = proc;
@@ -590,8 +771,8 @@ bool kernel_event_add(kernel_t *kernel, cycle_timer_t *timer, uint64_t cycles, c
 		kernel->first_cycle_timer_timeout = timer->timeout;
 	}
 
-	ret = pthread_mutex_unlock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
 		__builtin_trap();
 
 	return true;
@@ -599,10 +780,11 @@ bool kernel_event_add(kernel_t *kernel, cycle_timer_t *timer, uint64_t cycles, c
 
 void kernel_event_remove(kernel_t *kernel, cycle_timer_t *timer)
 {
-	int ret;
+	DWORD ret;
+	BOOL ret2;
 
-	ret = pthread_mutex_lock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	if (timer->parent != &kernel->cycle_timer_tree)
@@ -619,17 +801,18 @@ void kernel_event_remove(kernel_t *kernel, cycle_timer_t *timer)
 	}
 	cycle_timer_tree_delete_tree_node(&kernel->cycle_timer_tree, timer);
 end:
-	ret = pthread_mutex_unlock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
 		__builtin_trap();
 }
 
 void kernel_event_modify(kernel_t *kernel, cycle_timer_t *timer, uint64_t cycles)
 {
-	int ret;
+	DWORD ret;
+	BOOL ret2;
 
-	ret = pthread_mutex_lock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	if (timer->parent != NULL) {
@@ -637,33 +820,36 @@ void kernel_event_modify(kernel_t *kernel, cycle_timer_t *timer, uint64_t cycles
 	}
 	kernel_event_add(kernel, timer, cycles, timer->proc, timer->client_data);
 
-	ret = pthread_mutex_unlock(&kernel->timer_mutex);
-	if (ret != 0)
+	ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
 		__builtin_trap();
 }
 
 void kernel_dispatch(kernel_t *kernel)
 {
-	int ret;
+	DWORD ret;
+	BOOL ret2;
 	cpu_context_t *context = cpu_context_get_current();
 
 	context->saved_lock = kernel->lock != 0 ? 1 : 0;
 	context->ready = CPU_CONTEXT_DISPATCH;
 
-	ret = sem_wait(&kernel->kernel_mode);
-	if (ret != 0)
+	LOG_APPEND(kernel, context, LOGGER_STATE_DISPATCH);
+
+	ret = WaitForSingleObject(kernel->kernel_mode, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	kernel_event_modify(kernel, &context->dispatch_req, 1);
 
-	ret = sem_post(&kernel->start_event);
-	if (ret != 0)
+	ret2 = SetEvent(kernel->start_event);
+	if (!ret2)
 		__builtin_trap();
 
 	cpu_context_suspend(context);
 
 	while (context->dispatch_req.isactive) {
-		pthread_yield();
+		SwitchToThread();
 		if (context->terminate) {
 			cpu_context_exit(context);
 		}
@@ -672,7 +858,7 @@ void kernel_dispatch(kernel_t *kernel)
 
 void kernel_dispatch_in_int(kernel_t *kernel)
 {
-	if (gettid() != kernel->thread_id)
+	if (GetCurrentThreadId() != kernel->thread_id)
 		__builtin_trap();
 
 	kernel_do_dispatch(kernel);
@@ -681,6 +867,7 @@ void kernel_dispatch_in_int(kernel_t *kernel)
 void kernel_do_dispatch(void *client_data)
 {
 	kernel_t *kernel = (kernel_t *)client_data;
+	LOG_APPEND(kernel, NULL, LOGGER_STATE_DO_DISPATCH);
 
 	if (p_runtsk == p_schedtsk)
 		return;
@@ -706,6 +893,16 @@ void kernel_do_dispatch(void *client_data)
 	else {
 		kernel->sched_context = NULL;
 	}
+#ifdef DEBUG_LOG
+	if (kernel->sched_context != NULL) {
+		logger->sched_context = kernel->sched_context->thread_id;
+		logger->sched_context_ready = kernel->sched_context->ready;
+	}
+	else {
+		logger->sched_context = 0;
+		logger->sched_context_ready = 0;
+	}
+#endif
 }
 
 void cpu_context_do_dispatch(void *client_data)
@@ -718,36 +915,22 @@ void cpu_context_do_dispatch(void *client_data)
 
 void kernel_start_dispatch(kernel_t *kernel)
 {
-	int ret;
+	DWORD ret;
+	BOOL ret2;
 
 	//if (kernel->thread_id != 0)
 	//	__builtin_trap();
 
-	kernel->thread_id = gettid();
+	kernel->thread_id = GetCurrentThreadId();
 
-	for (;;) {
-		ret = sem_trywait(&kernel->kernel_mode);
-		if (ret != 0) {
-			switch (errno) {
-			case EAGAIN:
-				sem_post(&kernel->kernel_mode);
-				continue;
-			case EINTR:
-				break;
-			default:
-				__builtin_trap();
-				break;
-			}
-		}
-		break;
-	}
-
-	cpu_context_t *context = (cpu_context_t *)task_get_data(p_schedtsk);
+	ret = WaitForSingleObject(kernel->kernel_mode, 0);
+	if (ret != WAIT_OBJECT_0)
+		__builtin_trap();
 
 	kernel_event_modify(kernel, &kernel->dispatch_req, 1);
 
-	ret = sem_post(&kernel->start_event);
-	if (ret != 0)
+	ret2 = SetEvent(kernel->start_event);
+	if (!ret2)
 		__builtin_trap();
 
 	kernel_execute(kernel);
@@ -757,6 +940,10 @@ void kernel_exit_and_dispatch(kernel_t *kernel)
 {
 	kernel_dispatch(kernel);
 
+	//if (p_runtsk == NULL)
+	//	return;
+
+	//cpu_context_t *context = (cpu_context_t *)task_get_data(p_runtsk);
 	cpu_context_t *context = cpu_context_get_current();
 	cpu_context_exit(context);
 }
@@ -777,72 +964,6 @@ void kernel_call_exit_kernel(kernel_t *kernel)
 		cpu_context_terminate(context);
 
 		//cpu_context_deinit(context);
-	}
-}
-
-void kernel_lock_cpu(kernel_t *kernel)
-{
-	cpu_context_t *context = cpu_context_get_current();
-
-	if (context != NULL) {
-		for (;;) {
-			uint32_t lock = 0;
-			if (__atomic_compare_exchange_4(&kernel->lock, &lock, context->thread_id, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
-				break;
-			}
-			pthread_yield();
-			if (context->terminate) {
-				cpu_context_exit(context);
-			}
-		}
-
-		if (context->terminate) {
-			cpu_context_exit(context);
-		}
-	}
-	else {
-		for (;;) {
-			uint32_t lock = 0;
-			if (__atomic_compare_exchange_4(&kernel->lock, &lock, kernel->thread_id, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
-				break;
-			}
-
-			cpu_context_t *run_context = kernel->run_context;
-			if (run_context != NULL) {
-				if ((run_context->ready & 0x100) != 0) {
-					int ret = sem_post(&kernel->kernel_mode);
-					if (!ret)
-						__builtin_trap();
-					while ((run_context->ready & 0x100) != 0)
-						pthread_yield();
-				}
-				if ((run_context->ready & 0x200) != 0) {
-					cpu_context_resume(run_context);
-
-					while ((run_context->ready & 0x200) != 0)
-						pthread_yield();
-				}
-
-				if (run_context->dispatch_req.isactive)
-					run_context->dispatch_req.isactive = false;
-
-				kernel->mode = KERNEL_MODE_TIMEOUT;
-			}
-			pthread_yield();
-		}
-	}
-}
-
-void kernel_unlock_cpu(kernel_t *kernel)
-{
-	cpu_context_t *context = cpu_context_get_current();
-
-	uint32_t lock = __atomic_exchange_4(&kernel->lock, 0, __ATOMIC_RELAXED);
-	if (lock == 0)
-		__builtin_trap();
-
-	if (context != NULL && context->terminate) {
-		cpu_context_exit(context);
 	}
 }
 
@@ -873,12 +994,14 @@ void kernel_interrupt(kernel_t *kernel, int intno, uint64_t cycle)
 
 	cpu_context_t *context = cpu_context_get_current();
 
+	LOG_APPEND(kernel, context, LOGGER_STATE_INTERRUPT);
+
 	if (context != NULL) {
 		context->saved_lock = kernel->lock != 0 ? 1 : 0;
 		context->ready = CPU_CONTEXT_INTERRUPT;
 
-		int ret = sem_wait(&kernel->kernel_mode);
-		if (ret != 0)
+		DWORD ret = WaitForSingleObject(kernel->kernel_mode, INFINITE);
+		if (ret != WAIT_OBJECT_0)
 			__builtin_trap();
 
 		interrupt_t *interrupt = &kernel->interrupts[intno - 1];
@@ -888,14 +1011,14 @@ void kernel_interrupt(kernel_t *kernel, int intno, uint64_t cycle)
 		else
 			kernel_event_modify(kernel, &interrupt->timer, cycle);
 
-		ret = sem_post(&kernel->start_event);
-		if (ret != 0)
+		BOOL ret2 = SetEvent(kernel->start_event);
+		if (!ret2)
 			__builtin_trap();
 
 		cpu_context_suspend(context);
 
 		while (interrupt->timer.isactive) {
-			pthread_yield();
+			SwitchToThread();
 			if (context->terminate) {
 				cpu_context_exit(context);
 			}
@@ -917,9 +1040,11 @@ void kernel_do_interrupt(void *client_data)
 	kernel_t *kernel = interrupt->kernel;
 	int intno = interrupt->intno;
 	cpu_context_t *context = NULL;
-	int32_t lock = 0;
 
-	if (__atomic_compare_exchange_4(&kernel->lock, &lock, kernel->thread_id, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+	InterlockedCompareExchange(&kernel->lock, kernel->thread_id, 0);
+	if (kernel->lock == kernel->thread_id) {
+		LOG_APPEND(kernel, context, LOGGER_STATE_DO_INTERRUPT);
+
 		kernel_unlock_cpu(kernel);
 
 		if (intno == 1)
@@ -936,10 +1061,14 @@ void kernel_do_interrupt(void *client_data)
 		else {
 			kernel->sched_context = NULL;
 		}
+
+		LOG_APPEND2(kernel, context, LOGGER_STATE_DO_INTERRUPT_END);
 	}
 	else {
-		int ret = pthread_mutex_lock(&kernel->timer_mutex);
-		if (ret != 0)
+		LOG_APPEND(kernel, context, LOGGER_STATE_PEND_INTERRUPT);
+
+		DWORD ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+		if (ret != WAIT_OBJECT_0)
 			__builtin_trap();
 
 		if (interrupt->timer.pending_node.p_next != &interrupt->timer.pending_node) {
@@ -949,8 +1078,8 @@ void kernel_do_interrupt(void *client_data)
 
 		queue_insert_prev(&kernel->pending_queue, &interrupt->timer.pending_node);
 
-		ret = pthread_mutex_unlock(&kernel->timer_mutex);
-		if (ret != 0)
+		BOOL ret2 = ReleaseMutex(kernel->timer_mutex);
+		if (!ret2)
 			__builtin_trap();
 	}
 }
@@ -961,8 +1090,8 @@ void kernel_restart(kernel_t *kernel)
 	interrupt_stopped = false;
 	kernel->terminate = false;
 
-	int ret = pthread_mutex_lock(&kernel->timer_mutex);
-	if (ret != 0)
+	DWORD ret = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+	if (ret != WAIT_OBJECT_0)
 		__builtin_trap();
 
 	queue_initialize(&kernel->pending_queue);
@@ -984,10 +1113,18 @@ void kernel_restart(kernel_t *kernel)
 	kernel->cycle_counter = 0;
 	kernel->first_cycle_timer_node = NULL;
 
-	ret = pthread_mutex_unlock(&kernel->timer_mutex);
-	if (ret != 0)
+	BOOL ret2 = ReleaseMutex(kernel->timer_mutex);
+	if (!ret2)
 		__builtin_trap();
-
+#ifdef DEBUG_LOG
+	while (!queue_empty(&kernel->lock_queue)) {
+		logger_t *logger = (logger_t *)queue_delete_next(&kernel->lock_queue);
+		//free(logger);
+		memset(logger, 0, sizeof(logger_t));
+		queue_initialize(&logger->queue);
+		queue_insert_prev(&kernel->free_queue, &logger->queue);
+	}
+#endif
 	kernel->sched_context = NULL;
 	kernel->run_context = NULL;
 
@@ -995,41 +1132,28 @@ void kernel_restart(kernel_t *kernel)
 	kernel_lock_cpu(kernel);
 }
 
-int correct_errno(int err)
-{
-	if ((err == ETIMEDOUT) || (err == EAGAIN) || (err == EINTR/*???*/))
-		return ETIMEDOUT;
-	return err;
-}
-
 //#define SYNCRONIZE
 
 void kernel_execute(kernel_t *kernel)
 {
-	int ret, ret2, ret3;
+	DWORD ret, ret2, ret3;
+	BOOL ret4;
 #ifdef SYNCRONIZE
-	struct timespec btime, ntime, wtime;
+	LARGE_INTEGER freq;
+	LARGE_INTEGER btime, ntime;
 	uint64_t dtime;
 
-	clock_gettime(0, &ntime);
-#else
-	struct timespec wtime;
+	QueryPerformanceFrequency(&freq);
+
+	QueryPerformanceCounter(&ntime);
 #endif
 	while (!kernel->terminate) {
 		kernel->mode = KERNEL_MODE_WAIT;
 #ifdef SYNCRONIZE
 		if (kernel->first_cycle_timer_timeout == ~0ULL) {
-			wtime.tv_sec = ntime.tv_sec;
-			wtime.tv_nsec = ntime.tv_nsec + 1000000; // 1ms
-			if (wtime.tv_nsec >= 1000000000) {
-				wtime.tv_nsec -= 1000000000;
-				wtime.tv_sec++;
-			}
-
-			ret = sem_timedwait(&kernel->start_event, &wtime);
-			if (ret != 0)
-				ret = correct_errno(errno);
-			if ((ret == ETIMEDOUT) && (p_runtsk == NULL) && (p_schedtsk == NULL) && (kernel->first_cycle_timer_timeout == ~0ULL))
+			//ret = WaitForSingleObject(kernel->start_event, INFINITE);
+			ret = WaitForSingleObject(kernel->start_event, 1);
+			if ((ret == WAIT_TIMEOUT) && (p_runtsk == NULL) && (p_schedtsk == NULL) && (kernel->first_cycle_timer_timeout == ~0ULL))
 				kernel->terminate = true;
 		}
 		else {
@@ -1037,55 +1161,37 @@ void kernel_execute(kernel_t *kernel)
 				dtime = kernel->first_cycle_timer_timeout - kernel->cycle_counter;
 			else
 				dtime = kernel->cycle_counter - kernel->first_cycle_timer_timeout;
-			wtime.tv_sec = ntime.tv_sec;
-			wtime.tv_nsec = ntime.tv_nsec + dtime;
-			if (wtime.tv_nsec >= 1000000000) {
-				wtime.tv_nsec -= 1000000000;
-				wtime.tv_sec++;
-			}
-			ret = sem_timedwait(&kernel->start_event, &wtime);
-			if (ret != 0)
-				ret = correct_errno(errno);
+			ret = WaitForSingleObject(kernel->start_event, CyclesToMilliseconds(kernel, dtime));
 		}
 #else
-		if (kernel->lock == 0) {
-			ret = sem_trywait(&kernel->start_event);
-		}
-		else {
-			wtime.tv_sec = 0;
-			wtime.tv_nsec = 100;
-			ret = sem_timedwait(&kernel->start_event, &wtime);
-		}
-		if (ret != 0)
-			ret = correct_errno(errno);
-		if ((ret == ETIMEDOUT) && (p_runtsk == NULL) && (p_schedtsk == NULL) && (kernel->first_cycle_timer_timeout == ~0ULL))
+		DWORD timeout = kernel->lock == 0 ? 0 : 1;
+		ret = WaitForSingleObject(kernel->start_event, timeout);
+		if ((ret == WAIT_TIMEOUT) && (p_runtsk == NULL) && (p_schedtsk == NULL) && (kernel->first_cycle_timer_timeout == ~0ULL))
 			kernel->terminate = true;
 #endif
-		if ((ret != 0) && (ret != ETIMEDOUT))
+		if ((ret != WAIT_OBJECT_0) && (ret != WAIT_TIMEOUT))
 			__builtin_trap();
 
-		if (ret == ETIMEDOUT) {
+		if (ret == WAIT_TIMEOUT) {
 			for (int i = 0; i < 1; i++) {
-				ret2 = sem_trywait(&kernel->kernel_mode);
-				if (ret2 == 0)
+				ret2 = WaitForSingleObject(kernel->kernel_mode, 0);
+				if (ret2 == WAIT_OBJECT_0)
 					break;
-				ret2 = correct_errno(errno);
-				if (ret2 != ETIMEDOUT)
+				if (ret2 != WAIT_TIMEOUT)
 					__builtin_trap();
 
-				ret = sem_trywait(&kernel->start_event);
-				if (ret == 0)
+				ret = WaitForSingleObject(kernel->start_event, 0);
+				if (ret == WAIT_OBJECT_0)
 					break;
-				ret = correct_errno(errno);
-				if (ret != ETIMEDOUT)
+				if (ret != WAIT_TIMEOUT)
 					__builtin_trap();
 			}
 		}
 
-		if (ret == 0) {
+		if (ret == WAIT_OBJECT_0) {
 			kernel->mode = KERNEL_MODE_PASSIVE;
 		}
-		else if (ret2 == 0) {
+		else if (ret2 == WAIT_OBJECT_0) {
 			kernel->mode = KERNEL_MODE_AUTONOMOUS;
 		}
 		else {
@@ -1094,24 +1200,20 @@ void kernel_execute(kernel_t *kernel)
 #ifdef SYNCRONIZE
 		btime = ntime;
 
-		clock_gettime(0, &ntime);
+		QueryPerformanceCounter(&ntime);
 
-		if (ntime.tv_nsec >= btime.tv_nsec) {
-			dtime = ntime.tv_nsec - btime.tv_nsec;
-			dtime += (ntime.tv_sec - btime.tv_sec) * 1000000000llu;
-		}
-		else {
-			dtime = 1000000000llu - ntime.tv_nsec + btime.tv_nsec;
-			dtime += (ntime.tv_sec - btime.tv_sec) * 1000000000llu;
-		}
+		if (ntime.QuadPart >= btime.QuadPart)
+			dtime = ntime.QuadPart - btime.QuadPart;
+		else
+			dtime = btime.QuadPart - ntime.QuadPart;
 #endif
-		ret3 = pthread_mutex_lock(&kernel->timer_mutex);
-		if (ret3 != 0)
+		ret3 = WaitForSingleObject(kernel->timer_mutex, INFINITE);
+		if (ret3 != WAIT_OBJECT_0)
 			__builtin_trap();
 
 		cycle_timer_t *timer = NULL;
 #ifdef SYNCRONIZE
-		uint64_t next = kernel->cycle_counter + (kernel->cycle_timer_rate * dtime / 1000000000llu);
+		uint64_t next = kernel->cycle_counter + (kernel->cycle_timer_rate * dtime / freq.QuadPart);
 #else
 		if (kernel->first_cycle_timer_timeout == ~0ULL) {
 			while (!queue_empty(&kernel->pending_queue)) {
@@ -1143,8 +1245,8 @@ void kernel_execute(kernel_t *kernel)
 			kernel->cycle_counter = next;
 		}
 
-		ret3 = pthread_mutex_unlock(&kernel->timer_mutex);
-		if (ret3 != 0)
+		ret4 = ReleaseMutex(kernel->timer_mutex);
+		if (!ret4)
 			__builtin_trap();
 
 		cpu_context_t *context = kernel->run_context;
@@ -1158,17 +1260,39 @@ void kernel_execute(kernel_t *kernel)
 
 		if (context != NULL) {
 			if ((sched_context != context) && ((context->ready & 0x300) == 0)) {
-				if (context->ready != CPU_CONTEXT_READY) {
-					cpu_context_suspend2(context);
+				while (context->ready != CPU_CONTEXT_READY) {
+					ret3 = SuspendThread(context->thread);
+					if ((ret3 != 0) && (ret3 != 1))
+						__builtin_trap();
+
+					if (LOG_LOGING) {
+#ifdef DEBUG_LOG
+						context->suspend_req = true;
+#endif
+						ResumeThread(context->thread);
+						SwitchToThread();
+						continue;
+					}
+					else if ((context->ready & 0x300) != 0) {
+						ResumeThread(context->thread);
+					}
+					else {
+						context->ready = CPU_CONTEXT_SUSPEND2;
+						LOG_APPEND(kernel, context, LOGGER_STATE_SUSPEND2);
+					}
+					break;
 				}
+#ifdef DEBUG_LOG
+				context->suspend_req = false;
+#endif
 			}
 		}
 
 		if (sched_context != NULL) {
 			if (((context == NULL) || ((context->ready & 0x200) != 0))
 				&& ((sched_context->ready & 0x200) != 0)) {
-				uint32_t lock = __atomic_load_4(&kernel->lock, __ATOMIC_RELAXED);
-				if (lock == 0) {
+				LOG_APPEND(kernel, context, LOGGER_STATE_RESUME);
+				if (kernel->lock == 0) {
 					if (sched_context->saved_lock != 0) {
 						kernel_lock_cpu(kernel);
 					}
@@ -1179,18 +1303,28 @@ void kernel_execute(kernel_t *kernel)
 					}
 				}
 
-				cpu_context_resume(kernel->sched_context);
+				do {
+					ret3 = ResumeThread(sched_context->thread);
+					if (ret3 < 0)
+						__builtin_trap();
+				} while (ret3 != 1);
+
+				InterlockedCompareExchange(&sched_context->ready, CPU_CONTEXT_RUNNING, CPU_CONTEXT_SUSPEND2);
 
 				kernel->run_context = sched_context;
 
-				while ((sched_context->ready & 0x200) != 0)
-					pthread_yield();
+				int count = 0;
+				while ((sched_context->ready & 0x200) != 0) {
+					SwitchToThread();
+					count++;
+				}
+				LOG_UPDATE_COUNT(count);
 			}
 		}
 
 		if (kernel->mode != KERNEL_MODE_TIMEOUT) {
-			ret3 = sem_post(&kernel->kernel_mode);
-			if (ret3 != 0)
+			ret4 = ReleaseSemaphore(kernel->kernel_mode, 1, NULL);
+			if (!ret4)
 				__builtin_trap();
 		}
 	}

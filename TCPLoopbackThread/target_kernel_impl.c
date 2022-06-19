@@ -2,11 +2,8 @@
 #include "kernel_impl.h"
 #include "target_timer.h"
 #include "task.h"
+#include <windows.h>
 #include "dispatcher.h"
-#include "semaphore.h"
-#include "dataqueue.h"
-#include "wait.h"
-#include "task.h"
 #include "kernel_cfg.h"
 
 kernel_t *g_kernel;

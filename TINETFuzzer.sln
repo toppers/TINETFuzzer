@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCPLoopbackWsl", "TCPLoopba
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ARPTable", "ARPTable\ARPTable.vcxproj", "{CF586E12-12B1-4669-8F9D-924C7C255B62}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCPLoopbackThread", "TCPLoopbackThread\TCPLoopbackThread.vcxproj", "{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -50,6 +52,14 @@ Global
 		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x64.Build.0 = Release|x64
 		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x86.ActiveCfg = Release|Win32
 		{CF586E12-12B1-4669-8F9D-924C7C255B62}.Release|x86.Build.0 = Release|Win32
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Debug|x64.ActiveCfg = Debug|x64
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Debug|x64.Build.0 = Debug|x64
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Debug|x86.ActiveCfg = Debug|Win32
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Debug|x86.Build.0 = Debug|Win32
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Release|x64.ActiveCfg = Release|x64
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Release|x64.Build.0 = Release|x64
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Release|x86.ActiveCfg = Release|Win32
+		{17FDA06F-E5BC-4360-ABC8-5F0EE7BB897B}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
