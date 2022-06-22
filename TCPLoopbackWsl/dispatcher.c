@@ -89,7 +89,8 @@ typedef enum cpu_context_state_t {
 	CPU_CONTEXT_RUNNING = 2,
 	CPU_CONTEXT_SUSPEND = 3 + 0x200,
 	CPU_CONTEXT_DISPATCH = 4 + 0x100,
-	CPU_CONTEXT_INTERRUPT = 5 + 0x100
+	CPU_CONTEXT_SUSPEND2 = 5 + 0x200,
+	CPU_CONTEXT_INTERRUPT = 6 + 0x100
 } cpu_context_state_t;
 
 typedef struct _cpu_context_t
@@ -280,17 +281,20 @@ static void cpu_context_suspend_handler(int sig)
 			__builtin_trap();
 
 		cpu_context_t *context = cpu_context_get_current();
-		if (context->ready == CPU_CONTEXT_RUNNING)
-			cpu_context_suspend(context);
+		cpu_context_suspend(context);
 	}
 }
 
 void cpu_context_suspend2(cpu_context_t *context)
 {
 	int ret;
-	ret = pthread_kill(context->thread, SIGUSR1);
-	if (ret != 0)
-		__builtin_trap();
+	int32_t ready = CPU_CONTEXT_RUNNING;
+
+	if (__atomic_compare_exchange_4(&context->ready, &ready, CPU_CONTEXT_SUSPEND2, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+		ret = pthread_kill(context->thread, SIGUSR1);
+		if (ret != 0)
+			__builtin_trap();
+	}
 }
 
 void cpu_context_resume(cpu_context_t *context)
