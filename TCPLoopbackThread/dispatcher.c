@@ -109,6 +109,7 @@ typedef struct _cpu_context_t
 	jmp_buf RESTART;
 	cycle_timer_t dispatch_req;
 	LONG saved_lock;
+	LONG suspend_count;
 #ifdef DEBUG_LOG
 	bool logging;
 	bool suspend_req;
@@ -229,6 +230,8 @@ void cpu_context_suspend(cpu_context_t *context)
 	DWORD ret;
 
 	context->ready = CPU_CONTEXT_SUSPEND;
+
+	InterlockedIncrement(&context->suspend_count);
 
 	ret = SuspendThread(context->thread);
 	if (ret < 0)
@@ -664,18 +667,20 @@ void kernel_lock_cpu(kernel_t *kernel)
 				}
 				if ((run_context->ready & 0x200) != 0) {
 					DWORD ret;
+					LONG suspend_count = run_context->suspend_count;
+
+					InterlockedCompareExchange(&run_context->ready, CPU_CONTEXT_RUNNING, CPU_CONTEXT_SUSPEND2);
+
 					do {
 						ret = ResumeThread(run_context->thread);
 						if (ret < 0)
 							__builtin_trap();
 					} while (ret != 1);
 
-					if (run_context->ready == CPU_CONTEXT_SUSPEND2) {
-						run_context->ready = CPU_CONTEXT_RUNNING;
-					}
-
-					while ((run_context->ready & 0x200) != 0)
+					while (((run_context->ready & 0x200) != 0) &&
+						(run_context->suspend_count == suspend_count)) {
 						SwitchToThread();
+					}
 				}
 
 				if (run_context->dispatch_req.isactive)
@@ -940,10 +945,6 @@ void kernel_exit_and_dispatch(kernel_t *kernel)
 {
 	kernel_dispatch(kernel);
 
-	//if (p_runtsk == NULL)
-	//	return;
-
-	//cpu_context_t *context = (cpu_context_t *)task_get_data(p_runtsk);
 	cpu_context_t *context = cpu_context_get_current();
 	cpu_context_exit(context);
 }
@@ -1303,18 +1304,19 @@ void kernel_execute(kernel_t *kernel)
 					}
 				}
 
+				InterlockedCompareExchange(&sched_context->ready, CPU_CONTEXT_RUNNING, CPU_CONTEXT_SUSPEND2);
+				LONG suspend_count = sched_context->suspend_count;
+				kernel->run_context = sched_context;
+
 				do {
 					ret3 = ResumeThread(sched_context->thread);
 					if (ret3 < 0)
 						__builtin_trap();
 				} while (ret3 != 1);
 
-				InterlockedCompareExchange(&sched_context->ready, CPU_CONTEXT_RUNNING, CPU_CONTEXT_SUSPEND2);
-
-				kernel->run_context = sched_context;
-
 				int count = 0;
-				while ((sched_context->ready & 0x200) != 0) {
+				while (((sched_context->ready & 0x200) != 0) &&
+					(sched_context->suspend_count == suspend_count)) {
 					SwitchToThread();
 					count++;
 				}
